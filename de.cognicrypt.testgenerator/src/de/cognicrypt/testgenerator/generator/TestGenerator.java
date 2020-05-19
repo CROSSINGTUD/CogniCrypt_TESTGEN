@@ -22,10 +22,10 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaModelException;
 
-import crypto.rules.CryptSLMethod;
-import crypto.rules.CryptSLObject;
-import crypto.rules.CryptSLPredicate;
-import crypto.rules.CryptSLRule;
+import crypto.rules.CrySLMethod;
+import crypto.rules.CrySLObject;
+import crypto.rules.CrySLPredicate;
+import crypto.rules.CrySLRule;
 import crypto.rules.StateMachineGraph;
 import crypto.rules.StateNode;
 import crypto.rules.TransitionEdge;
@@ -46,7 +46,7 @@ public class TestGenerator {
 	private IResource targetFile;
 	private CrySLBasedCodeGenerator codeGenerator;
 	private DeveloperProject developerProject;
-	private List<CryptSLRule> rules;
+	private List<CrySLRule> rules;
 	private RuleDependencyTree rdt;
 
 	private static TestGenerator testGenerator = new TestGenerator();
@@ -81,7 +81,7 @@ public class TestGenerator {
 				"javax.crypto.SecretKey", "javax.crypto.spec.SecretKeySpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKeyFactory",
 				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "javax.net.ssl.TrustManagerFactory"));
 		
-		for (CryptSLRule curRule : rules) {
+		for (CrySLRule curRule : rules) {
 			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("java.security.MessageDigest")) {
 			if(selectedRules.contains(curRule.getClassName())) {
@@ -117,18 +117,18 @@ public class TestGenerator {
 				templateMethod.setModifier("public");
 				templateMethod.setReturnType("void");
 				templateMethod.setName("testMethod"); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
-				Map<String, List<CryptSLPredicate>> reliablePreds = new HashMap<String, List<CryptSLPredicate>>();
+				Map<String, List<CrySLPredicate>> reliablePreds = new HashMap<String, List<CrySLPredicate>>();
 				
 				// NOTE2 In case of tests generation there is no template method which uses only subset of rules. Instead we
 				// consider all rules which has direct path to current rule i.e. they generate the required predicate
-				Iterator<CryptSLRule> itr = rules.iterator();
-				List<CryptSLRule> relatedRules = new ArrayList<>();
+				Iterator<CrySLRule> itr = rules.iterator();
+				List<CrySLRule> relatedRules = new ArrayList<>();
 				relatedRules.add(curRule);
 				// NOTE2 Every rule has different predicate connections
-				this.codeGenerator.setPredicateConnections(new ArrayList<Entry<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>>>());
+				this.codeGenerator.setPredicateConnections(new ArrayList<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>>());
 				while (itr.hasNext()) {
-					CryptSLRule nextRule = itr.next();
-					// NOTE2 CryptSLRule doesn't implement toEquals() method
+					CrySLRule nextRule = itr.next();
+					// NOTE2 CrySLRule doesn't implement toEquals() method
 					if(!curRule.getClassName().equals(nextRule.getClassName())) {
 						// NOTE curRule depends on nextRule that ensures its required predicate
 						if(rdt.hasDirectPath(nextRule, curRule)) {
@@ -146,11 +146,11 @@ public class TestGenerator {
 				String usedClass = relatedRules.get(relatedRules.size() - 1).getClassName();
 
 				// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
-				for (CryptSLRule rule : relatedRules) {
+				for (CrySLRule rule : relatedRules) {
 					boolean next = true;
 					boolean lastRule = relatedRules.get(relatedRules.size() - 1).equals(rule);
 					StateMachineGraph stateMachine = rule.getUsagePattern();
-					Optional<Entry<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>>> toBeEnsured = Optional.empty();
+					Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = Optional.empty();
 					
 					if(!lastRule)
 						toBeEnsured = this.codeGenerator.determineEnsurePreds(rule);
@@ -167,7 +167,7 @@ public class TestGenerator {
 						// NOTE2 other imports have to be added later
 //						templateClass.addImports(imports);
 
-						Map<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
+						Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
 						// NOTE2 this won't work; many statements result in NullPointerExceptions
 						//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
@@ -181,7 +181,7 @@ public class TestGenerator {
 
 						if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
 							.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
-							Entry<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>> originalPred = toBeEnsured.get();
+							Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
 							int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
 							this.codeGenerator.getPredicateConnections().remove(indexOf);
 							this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
@@ -212,19 +212,19 @@ public class TestGenerator {
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private ArrayList<String> generateMethodInvocations(CryptSLRule rule, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private ArrayList<String> generateMethodInvocations(CrySLRule rule, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
 		boolean ensures = false;
 
 		List<Entry<String, String>> useMethodParameters = new ArrayList<Entry<String, String>>();
-		Entry<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
+		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
 
 		for (TransitionEdge transition : currentTransitions) {
-			List<CryptSLMethod> labels = transition.getLabel();
-			Entry<CryptSLMethod, Boolean> entry = this.codeGenerator.fetchEnsuringMethod(usablePreds, pre, labels, ensures);
-			CryptSLMethod method = entry.getKey();
+			List<CrySLMethod> labels = transition.getLabel();
+			Entry<CrySLMethod, Boolean> entry = this.codeGenerator.fetchEnsuringMethod(usablePreds, pre, labels, ensures);
+			CrySLMethod method = entry.getKey();
 			ensures = entry.getValue();
 			String methodName = method.getMethodName();
 			// NOTE stripping away the package and retaining only method name
@@ -277,8 +277,8 @@ public class TestGenerator {
 
 	// NOTE2 this method is re-created because original version uses CodeGenCrySLRule
 	private Entry<String, List<Entry<String, String>>> generateMethodInvocation(GeneratorMethod useMethod,
-			String lastInvokedMethod, List<String> imports, CryptSLMethod method, String methodName,
-			List<Entry<String, String>> parameters, CryptSLRule rule, StringBuilder currentInvokedMethod,
+			String lastInvokedMethod, List<String> imports, CrySLMethod method, String methodName,
+			List<Entry<String, String>> parameters, CrySLRule rule, StringBuilder currentInvokedMethod,
 			boolean lastRule) {
 
 		String methodInvocation = "";
@@ -343,7 +343,7 @@ public class TestGenerator {
 		return replaceParameterByValue(rule, useMethod, parameters, methodInvocation, imports);
 	}
 
-	private Entry<String, List<Entry<String, String>>> replaceParameterByValue(CryptSLRule rule,
+	private Entry<String, List<Entry<String, String>>> replaceParameterByValue(CrySLRule rule,
 			GeneratorMethod useMethod, List<Entry<String, String>> parametersOfCall, String currentInvokedMethod,
 			List<String> imports) {
 
@@ -354,14 +354,14 @@ public class TestGenerator {
 		List<Entry<String, String>> declaredVariables = useMethod.getDeclaredVariables();
 		
 		for (Entry<String, String> parameter : parametersOfCall) {
-			Optional<Entry<CryptSLPredicate, Entry<CryptSLRule, CryptSLRule>>> entry = this.codeGenerator.getPredicateConnections().stream().filter(
+			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> entry = this.codeGenerator.getPredicateConnections().stream().filter(
 					e -> de.cognicrypt.utils.Utils.isSubType(e.getValue().getValue().getClassName(), rule.getClassName()) || de.cognicrypt.utils.Utils.isSubType(rule.getClassName(), e.getValue().getValue().getClassName()))
 					.findFirst();
 			if (entry.isPresent()) {
-				final CryptSLObject cryptSLObject = (CryptSLObject) entry.get().getKey().getParameters().get(0);
-				if (!"this".equals(cryptSLObject.getVarName())) {
-					if ((de.cognicrypt.utils.Utils.isSubType(cryptSLObject.getJavaType(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), cryptSLObject.getJavaType()))) {
-						methodParameter = methodParameter.replace(parameter.getKey(), cryptSLObject.getVarName());
+				final CrySLObject CrySLObject = (CrySLObject) entry.get().getKey().getParameters().get(0);
+				if (!"this".equals(CrySLObject.getVarName())) {
+					if ((de.cognicrypt.utils.Utils.isSubType(CrySLObject.getJavaType(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), CrySLObject.getJavaType()))) {
+						methodParameter = methodParameter.replace(parameter.getKey(), CrySLObject.getVarName());
 						continue;
 					}
 				}
