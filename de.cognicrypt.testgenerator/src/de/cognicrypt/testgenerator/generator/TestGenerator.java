@@ -4,7 +4,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Currency;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -57,7 +56,7 @@ public class TestGenerator {
 
 	void initialize() throws CoreException {
 		this.javaProject = Utils.createJavaProject("UsagePatternTests");
-		this.rules = de.cognicrypt.utils.Utils.readCrySLRules();
+		this.rules = de.cognicrypt.utils.CrySLUtils.readCrySLRules();
 		this.rdt = new RuleDependencyTree(this.rules);
 	}
 
@@ -262,7 +261,7 @@ public class TestGenerator {
 		}
 
 		if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
-			this.codeGenerator.kills.addAll(localKillers);
+			this.codeGenerator.getKills().addAll(localKillers);
 			for (Entry<String, String> par : useMethodParameters) {
 //				if(par.getValue().contains("."))
 //					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
