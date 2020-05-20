@@ -36,6 +36,7 @@ import de.cognicrypt.codegenerator.generator.GeneratorClass;
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
 import de.cognicrypt.core.Constants;
+import de.cognicrypt.utils.CrySLUtils;
 import de.cognicrypt.testgenerator.utils.Utils;
 import de.cognicrypt.utils.DeveloperProject;
 
@@ -47,6 +48,7 @@ public class TestGenerator {
 	private DeveloperProject developerProject;
 	private List<CrySLRule> rules;
 	private RuleDependencyTree rdt;
+	private static int numberOfTestCases = 0;
 
 	private static TestGenerator testGenerator = new TestGenerator();
 
@@ -56,7 +58,7 @@ public class TestGenerator {
 
 	void initialize() throws CoreException {
 		this.javaProject = Utils.createJavaProject("UsagePatternTests");
-		this.rules = de.cognicrypt.utils.CrySLUtils.readCrySLRules();
+		this.rules = CrySLUtils.readCrySLRules();
 		this.rdt = new RuleDependencyTree(this.rules);
 	}
 
@@ -81,6 +83,7 @@ public class TestGenerator {
 				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "javax.net.ssl.TrustManagerFactory"));
 		
 		for (CrySLRule curRule : rules) {
+			numberOfTestCases = 0;
 			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("java.security.MessageDigest")) {
 			if(selectedRules.contains(curRule.getClassName())) {
@@ -111,11 +114,6 @@ public class TestGenerator {
 				templateClass.setPackageName("jca");
 				templateClass.setModifier("public");
 				templateClass.setClassName(testClassName);
-				GeneratorMethod templateMethod = new GeneratorMethod();
-				templateClass.addMethod(templateMethod);
-				templateMethod.setModifier("public");
-				templateMethod.setReturnType("void");
-				templateMethod.setName("testMethod"); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
 				Map<String, List<CrySLPredicate>> reliablePreds = new HashMap<String, List<CrySLPredicate>>();
 				
 				// NOTE2 In case of tests generation there is no template method which uses only subset of rules. Instead we
@@ -143,10 +141,11 @@ public class TestGenerator {
 				Collections.reverse(relatedRules);
 				
 				String usedClass = relatedRules.get(relatedRules.size() - 1).getClassName();
-
+				
+				boolean isFirstRule = true;	
+				GeneratorMethod templateMethod = null;
 				// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
 				for (CrySLRule rule : relatedRules) {
-					boolean next = true;
 					boolean lastRule = relatedRules.get(relatedRules.size() - 1).equals(rule);
 					StateMachineGraph stateMachine = rule.getUsagePattern();
 					Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = Optional.empty();
@@ -160,8 +159,14 @@ public class TestGenerator {
 					
 					Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
 
-					do {
+					while (transitions.hasNext()) {
 						List<TransitionEdge> currentTransition = transitions.next();
+						
+						if(isFirstRule) {	
+							templateMethod = generateMethod();	
+							templateClass.addMethod(templateMethod);	
+						}
+						
 						ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
 						// NOTE2 other imports have to be added later
 //						templateClass.addImports(imports);
@@ -172,7 +177,7 @@ public class TestGenerator {
 						//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
 						//						ArrayList<String> methodInvocations = this.codeGenerator.generateMethodInvocations(dummyRule, templateMethod, currentTransitions, mayUsePreds, imports, lastRule);
 
-						ArrayList<String> methodInvocations = generateMethodInvocations(rule, templateMethod, currentTransition, mayUsePreds, imports, lastRule);
+						ArrayList<String> methodInvocations = generateMethodInvocations(rule, templateClass, templateMethod, currentTransition, mayUsePreds, imports, lastRule);
 
 						if (methodInvocations.isEmpty()) {
 							continue;
@@ -195,8 +200,8 @@ public class TestGenerator {
 						templateClass.addImports(imports);
 
 						reliablePreds.put(rule.getClassName(), rule.getPredicates());
-						next = false;
-					} while(next);
+					}
+					isFirstRule = false;
 				}
 				generatedClasses.add(templateClass);
 				CodeHandler codeHandler = new CodeHandler(generatedClasses);
@@ -208,10 +213,18 @@ public class TestGenerator {
 			}
 		}
 	}
+	
+	public GeneratorMethod generateMethod() {	
+		GeneratorMethod templateMethod = new GeneratorMethod();	
+		templateMethod.setModifier("public");	
+		templateMethod.setReturnType("void");	
+		templateMethod.setName("validTest" + ++numberOfTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...	
+		return templateMethod;	
+	}
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private ArrayList<String> generateMethodInvocations(CrySLRule rule, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private ArrayList<String> generateMethodInvocations(CrySLRule rule, GeneratorClass templateClass, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
@@ -220,6 +233,7 @@ public class TestGenerator {
 		List<Entry<String, String>> useMethodParameters = new ArrayList<Entry<String, String>>();
 		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
 
+		StringBuilder instanceName = new StringBuilder();
 		for (TransitionEdge transition : currentTransitions) {
 			List<CrySLMethod> labels = transition.getLabel();
 			Entry<CrySLMethod, Boolean> entry = this.codeGenerator.fetchEnsuringMethod(usablePreds, pre, labels, ensures);
@@ -245,7 +259,7 @@ public class TestGenerator {
 			String lastInvokedMethod = this.codeGenerator.getLastInvokedMethodName(currentTransitions).toString();
 
 			Entry<String, List<Entry<String, String>>> methodInvocationWithUseMethodParameters = generateMethodInvocation(useMethod, lastInvokedMethod, imports, method, methodName,
-					parameters, rule, sourceLineGenerator, lastRule);
+					parameters, rule, sourceLineGenerator, lastRule, instanceName);
 			
 			useMethodParameters.addAll(methodInvocationWithUseMethodParameters.getValue());
 			String methodInvocation = methodInvocationWithUseMethodParameters.getKey();
@@ -267,8 +281,18 @@ public class TestGenerator {
 //					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
 				useMethod.addParameter(par);
 			}
+			methodInvocations.add("Assertions.hasEnsuredPredicate" + "(" + instanceName + ");");	
 			return methodInvocations;
 		} else {
+			methodInvocations.add("Assertions.hasEnsuredPredicate" + "(" + instanceName + ");");	
+			GeneratorMethod invalidTestcase = generateMethod();	
+			invalidTestcase.addStatementToBody("");	
+			for (String methodInvocation : methodInvocations) {	
+				invalidTestcase.addStatementToBody(methodInvocation);	
+			}	
+				
+			invalidTestcase.addExceptions(this.codeGenerator.getExceptions());	
+			templateClass.addMethod(invalidTestcase);
 			this.codeGenerator.setToBeEnsuredPred(pre);
 			return new ArrayList<String>();
 		}	
@@ -278,13 +302,16 @@ public class TestGenerator {
 	private Entry<String, List<Entry<String, String>>> generateMethodInvocation(GeneratorMethod useMethod,
 			String lastInvokedMethod, List<String> imports, CrySLMethod method, String methodName,
 			List<Entry<String, String>> parameters, CrySLRule rule, StringBuilder currentInvokedMethod,
-			boolean lastRule) {
+			boolean lastRule, StringBuilder instanceName1) {
 
 		String methodInvocation = "";
 
 		String className = rule.getClassName();
 		String simpleName = className.substring(className.lastIndexOf('.') + 1);
 		String instanceName = simpleName.substring(0, 1).toLowerCase() + simpleName.substring(1);
+		
+		if(instanceName1.toString().isEmpty())	
+			instanceName1.append(instanceName);
 		
 		// NOTE2 className is used because its later used by isSubType for resolving parameters based on the variables generated by TestGenerator
 		if (currentInvokedMethod.substring(0, currentInvokedMethod.indexOf("(")).equals(simpleName)) {
