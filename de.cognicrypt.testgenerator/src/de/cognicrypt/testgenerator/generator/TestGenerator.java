@@ -13,8 +13,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import javax.swing.JDialog;
-import javax.swing.JOptionPane;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
@@ -42,6 +42,7 @@ import de.cognicrypt.utils.DeveloperProject;
 
 public class TestGenerator {
 
+	Logger LOG = Logger.getLogger(TestGenerator.class.getName());
 	private IJavaProject javaProject;
 	private IResource targetFile;
 	private CrySLBasedCodeGenerator codeGenerator;
@@ -57,6 +58,7 @@ public class TestGenerator {
 	}
 
 	void initialize() throws CoreException {
+		LOG.setLevel(Level.INFO);
 		this.javaProject = Utils.createJavaProject("UsagePatternTests");
 		this.rules = CrySLUtils.readCrySLRules();
 		this.rdt = new RuleDependencyTree(this.rules);
@@ -73,22 +75,21 @@ public class TestGenerator {
 			System.out.println("Failed to initialize project");
 			e1.printStackTrace();
 		}
-		JOptionPane optionPane = new JOptionPane("CogniCrypt is now generating testcases based on CrySL rules into project " + this.javaProject.getElementName() + ". This should take no longer than a few seconds.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION, null, new Object[] {}, null);
-		JDialog waitingDialog = optionPane.createDialog("Generating Testcases");
-		waitingDialog.setModal(false);
-		waitingDialog.setVisible(true);
-		
 		List<String> selectedRules = new ArrayList<String>(Arrays.asList("java.security.MessageDigest", "java.security.SecureRandom", 
 				"javax.crypto.SecretKey", "javax.crypto.spec.SecretKeySpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKeyFactory",
-				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec"));
-		
+				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "javax.net.ssl.TrustManagerFactory", 
+				"java.security.AlgorithmParameters", "javax.net.ssl.CertPathTrustManagerParameters", "javax.crypto.spec.DHGenParameterSpec", 
+				"java.security.spec.DSAGenParameterSpec", "javax.crypto.spec.GCMParameterSpec", "javax.xml.crypto.dsig.spec.HMACParameterSpec",
+				"javax.crypto.spec.IvParameterSpec", "java.security.Key", "java.security.KeyPairGenerator", "javax.net.ssl.KeyStoreBuilderParameters",
+				"javax.crypto.spec.PBEKeySpec", "javax.crypto.spec.PBEParameterSpec", "java.security.cert.PKIXBuilderParameters",
+				"java.security.cert.PKIXParameters", "java.security.spec.RSAKeyGenParameterSpec",
+				"javax.net.ssl.TrustManagerFactory"));
 		for (CrySLRule curRule : rules) {
 			numberOfTestCases = 0;
 			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("java.security.MessageDigest")) {
 			if(selectedRules.contains(curRule.getClassName())) {
-//			if(curRule.getClassName().equals("java.security.MessageDigest") || curRule.getClassName().equals("java.security.SecureRandom") || curRule.getClassName().equals("javax.crypto.SecretKey") || curRule.getClassName().equals("javax.crypto.spec.SecretKeySpec") || curRule.getClassName().equals("javax.crypto.KeyGenerator") || curRule.getClassName().equals("javax.crypto.SecretKeyFactory")) {
-//			if(!(curRule.getClassName().equals("javax.crypto.Cipher") || curRule.getClassName().equals("javax.crypto.Mac") || curRule.getClassName().equals("javax.crypto.spec.PBEKeySpec"))) {
+				LOG.info("Creating tests for " + curRule.getClassName());
 				String testClassName = Utils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
 				try {
 					// FIXME2 this method is only retained because CrySLBasedCodeGenerator constructor requires targetFile. Or else templateClass values can be used to generate class
@@ -129,15 +130,18 @@ public class TestGenerator {
 					if(!curRule.getClassName().equals(nextRule.getClassName())) {
 						// NOTE curRule depends on nextRule that ensures its required predicate
 						if(rdt.hasDirectPath(nextRule, curRule)) {
-							this.codeGenerator.populatePredicateConnections(nextRule, curRule);
-							relatedRules.add(nextRule);
-							curRule = nextRule;
-							itr = rules.iterator();
+							// NOTE4 avoid adding both PKIXBuilderParameters and PKIXParameters
+							if(!isAdded(nextRule)) {
+								this.codeGenerator.populatePredicateConnections(nextRule, curRule);
+								relatedRules.add(nextRule);
+								curRule = nextRule;
+							}
 						}
 
 					}
 				}
 
+				printPredicateConnections(curRule1);	
 				Collections.reverse(relatedRules);
 
 				String usedClass = curRule1.getClassName();
@@ -179,6 +183,25 @@ public class TestGenerator {
 		}
 	}
 
+	public void printPredicateConnections(CrySLRule rule) {
+		System.out.print("PC : " + Utils.retrieveOnlyClassName(rule.getClassName()));
+		List<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> connections = this.codeGenerator.getPredicateConnections();
+		for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> c : connections) {
+			CrySLPredicate key = c.getKey();
+			Entry<CrySLRule, CrySLRule> value = c.getValue();
+			System.out.print(" -> " + Utils.retrieveOnlyClassName(value.getKey().getClassName()));
+		}
+		System.out.println("\n");
+	}
+
+	public boolean isAdded(CrySLRule nextRule) {
+		return this.codeGenerator.getPredicateConnections().stream().anyMatch(entry -> {
+			return nextRule.getPredicates().stream().anyMatch(predicate -> {
+				return predicate.getPredName().equals(entry.getKey().getPredName());
+			});
+		});
+	}
+	
 	public void populateMethod(GeneratorClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
 			List<CrySLRule> relatedRules, String usedClass, GeneratorMethod templateMethod) {
 		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
