@@ -48,7 +48,7 @@ public class TestGenerator {
 	private DeveloperProject developerProject;
 	private List<CrySLRule> rules;
 	private RuleDependencyTree rdt;
-	private static int numberOfTestCases = 0;
+	private static int numberOfTestCases;
 
 	private static TestGenerator testGenerator = new TestGenerator();
 
@@ -80,7 +80,7 @@ public class TestGenerator {
 		
 		List<String> selectedRules = new ArrayList<String>(Arrays.asList("java.security.MessageDigest", "java.security.SecureRandom", 
 				"javax.crypto.SecretKey", "javax.crypto.spec.SecretKeySpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKeyFactory",
-				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "javax.net.ssl.TrustManagerFactory"));
+				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec"));
 		
 		for (CrySLRule curRule : rules) {
 			numberOfTestCases = 0;
@@ -120,9 +120,9 @@ public class TestGenerator {
 				// consider all rules which has direct path to current rule i.e. they generate the required predicate
 				Iterator<CrySLRule> itr = rules.iterator();
 				List<CrySLRule> relatedRules = new ArrayList<>();
-				relatedRules.add(curRule);
 				// NOTE2 Every rule has different predicate connections
 				this.codeGenerator.setPredicateConnections(new ArrayList<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>>());
+				CrySLRule curRule1 = curRule;
 				while (itr.hasNext()) {
 					CrySLRule nextRule = itr.next();
 					// NOTE2 CrySLRule doesn't implement toEquals() method
@@ -139,70 +139,35 @@ public class TestGenerator {
 				}
 
 				Collections.reverse(relatedRules);
-				
-				String usedClass = relatedRules.get(relatedRules.size() - 1).getClassName();
-				
-				boolean isFirstRule = true;	
-				GeneratorMethod templateMethod = null;
-				// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
-				for (CrySLRule rule : relatedRules) {
-					boolean lastRule = relatedRules.get(relatedRules.size() - 1).equals(rule);
-					StateMachineGraph stateMachine = rule.getUsagePattern();
-					Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = Optional.empty();
-					
-					if(!lastRule)
-						toBeEnsured = this.codeGenerator.determineEnsurePreds(rule);
-					else {
-						// FIXME2 to be implemented without retObj
-						this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(rule.getPredicates().get(0), new SimpleEntry(rule, null)));
+
+				String usedClass = curRule1.getClassName();
+				StateMachineGraph stateMachine = curRule1.getUsagePattern();
+				Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
+				while(transitions.hasNext()) {
+					GeneratorMethod templateMethod = generateMethod();
+					templateClass.addMethod(templateMethod);
+
+					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
+
+					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(curRule1.getPredicates().get(0), new SimpleEntry(curRule1, null)));
+
+					List<TransitionEdge> currentTransition = transitions.next();
+
+					ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+
+					Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
+
+					ArrayList<String> methodInvocations = generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true);
+
+					templateMethod.addStatementToBody("");
+					for (String methodInvocation : methodInvocations) {
+						templateMethod.addStatementToBody(methodInvocation);
 					}
-					
-					Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
-
-					while (transitions.hasNext()) {
-						List<TransitionEdge> currentTransition = transitions.next();
 						
-						if(isFirstRule) {	
-							templateMethod = generateMethod();	
-							templateClass.addMethod(templateMethod);	
-						}
-						
-						ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
-						// NOTE2 other imports have to be added later
-//						templateClass.addImports(imports);
-
-						Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
-
-						// NOTE2 this won't work; many statements result in NullPointerExceptions
-						//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
-						//						ArrayList<String> methodInvocations = this.codeGenerator.generateMethodInvocations(dummyRule, templateMethod, currentTransitions, mayUsePreds, imports, lastRule);
-
-						ArrayList<String> methodInvocations = generateMethodInvocations(rule, templateClass, templateMethod, currentTransition, mayUsePreds, imports, lastRule);
-
-						if (methodInvocations.isEmpty()) {
-							continue;
-						}
-
-						if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
-							.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
-							Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
-							int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
-							this.codeGenerator.getPredicateConnections().remove(indexOf);
-							this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
-						}
-
-						templateMethod.addStatementToBody("");
-						for (String methodInvocation : methodInvocations) {
-							templateMethod.addStatementToBody(methodInvocation);
-						}
-						
-						templateMethod.addExceptions(this.codeGenerator.getExceptions());
-						templateClass.addImports(imports);
-
-						reliablePreds.put(rule.getClassName(), rule.getPredicates());
-					}
-					isFirstRule = false;
+					templateMethod.addExceptions(this.codeGenerator.getExceptions());
+					templateClass.addImports(imports);
 				}
+				
 				generatedClasses.add(templateClass);
 				CodeHandler codeHandler = new CodeHandler(generatedClasses);
 				try {
@@ -213,18 +178,71 @@ public class TestGenerator {
 			}
 		}
 	}
-	
-	public GeneratorMethod generateMethod() {	
-		GeneratorMethod templateMethod = new GeneratorMethod();	
-		templateMethod.setModifier("public");	
-		templateMethod.setReturnType("void");	
-		templateMethod.setName("validTest" + ++numberOfTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...	
-		return templateMethod;	
+
+	public void populateMethod(GeneratorClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
+			List<CrySLRule> relatedRules, String usedClass, GeneratorMethod templateMethod) {
+		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
+		for (CrySLRule rule : relatedRules) {
+			boolean next = true;
+			StateMachineGraph stateMachine = rule.getUsagePattern();
+			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = Optional.empty();
+
+			toBeEnsured = this.codeGenerator.determineEnsurePreds(rule);
+
+			Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
+
+			do {
+				List<TransitionEdge> currentTransition = transitions.next();
+				ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+				// NOTE2 other imports have to be added later
+				//						templateClass.addImports(imports);
+
+				Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
+
+				// NOTE2 this won't work; many statements result in NullPointerExceptions
+				//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
+				//						ArrayList<String> methodInvocations = this.codeGenerator.generateMethodInvocations(dummyRule, templateMethod, currentTransitions, mayUsePreds, imports, lastRule);
+
+				ArrayList<String> methodInvocations = generateMethodInvocations(templateClass, rule, templateMethod, currentTransition, mayUsePreds, imports, false);
+
+				if (methodInvocations.isEmpty()) {
+					continue;
+				}
+
+//				if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
+//						.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
+//					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
+//					int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
+//					this.codeGenerator.getPredicateConnections().remove(indexOf);
+//					this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
+//				}
+
+				templateMethod.addStatementToBody("");
+				for (String methodInvocation : methodInvocations) {
+					templateMethod.addStatementToBody(methodInvocation);
+				}
+
+				templateMethod.addExceptions(this.codeGenerator.getExceptions());
+				templateClass.addImports(imports);
+
+				reliablePreds.put(rule.getClassName(), rule.getPredicates());
+				next = false;
+			} while(next);
+		}
+	}
+
+	public GeneratorMethod generateMethod() {
+
+		GeneratorMethod templateMethod = new GeneratorMethod();
+		templateMethod.setModifier("public");
+		templateMethod.setReturnType("void");
+		templateMethod.setName("validTest" + ++numberOfTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
+		return templateMethod;
 	}
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private ArrayList<String> generateMethodInvocations(CrySLRule rule, GeneratorClass templateClass, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private ArrayList<String> generateMethodInvocations(GeneratorClass templateClass, CrySLRule rule, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
@@ -274,28 +292,33 @@ public class TestGenerator {
 			}
 		}
 
-		if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
-			this.codeGenerator.getKills().addAll(localKillers);
-			for (Entry<String, String> par : useMethodParameters) {
-//				if(par.getValue().contains("."))
-//					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
-				useMethod.addParameter(par);
+		if(!lastRule) {
+			if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
+				this.codeGenerator.getKills().addAll(localKillers);
+				for (Entry<String, String> par : useMethodParameters) {
+					//				if(par.getValue().contains("."))
+					//					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
+					useMethod.addParameter(par);
+				}
+				return methodInvocations;
+			} else {
+				this.codeGenerator.setToBeEnsuredPred(pre);
+				return new ArrayList<String>();
 			}
-			methodInvocations.add("Assertions.hasEnsuredPredicate" + "(" + instanceName + ");");	
-			return methodInvocations;
 		} else {
-			methodInvocations.add("Assertions.hasEnsuredPredicate" + "(" + instanceName + ");");	
-			GeneratorMethod invalidTestcase = generateMethod();	
-			invalidTestcase.addStatementToBody("");	
-			for (String methodInvocation : methodInvocations) {	
-				invalidTestcase.addStatementToBody(methodInvocation);	
-			}	
-				
-			invalidTestcase.addExceptions(this.codeGenerator.getExceptions());	
-			templateClass.addMethod(invalidTestcase);
-			this.codeGenerator.setToBeEnsuredPred(pre);
-			return new ArrayList<String>();
-		}	
+			if (this.codeGenerator.getToBeEnsuredPred() == null) {
+				this.codeGenerator.getKills().addAll(localKillers);
+				for (Entry<String, String> par : useMethodParameters) {
+					//				if(par.getValue().contains("."))
+					//					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
+					useMethod.addParameter(par);
+				}
+				return methodInvocations;
+			} else {
+				this.codeGenerator.setToBeEnsuredPred(pre);
+				return methodInvocations;
+			}
+		}
 	}
 
 	// NOTE2 this method is re-created because original version uses CodeGenCrySLRule
