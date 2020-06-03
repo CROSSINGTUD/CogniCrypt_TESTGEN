@@ -47,8 +47,8 @@ public class TestGenerator {
 	private IResource targetFile;
 	private CrySLBasedCodeGenerator codeGenerator;
 	private DeveloperProject developerProject;
-	private List<CrySLRule> rules;
-	private RuleDependencyTree rdt;
+	private static List<CrySLRule> rules;
+	private static RuleDependencyTree rdt;
 	private static int numberOfTestCases;
 
 	private static TestGenerator testGenerator = new TestGenerator();
@@ -56,12 +56,17 @@ public class TestGenerator {
 	private TestGenerator() {
 
 	}
+	
+	static {
+		debugLogger.info("Reading ruleset.");
+		rules = CrySLUtils.readCrySLRules();
+		debugLogger.info("Finished reading ruleset.");
+		rdt = new RuleDependencyTree(rules);
+	}
 
 	void initialize() throws CoreException {
 		debugLogger.setLevel(Level.INFO);
 		this.javaProject = Utils.createJavaProject("UsagePatternTests");
-		this.rules = CrySLUtils.readCrySLRules();
-		this.rdt = new RuleDependencyTree(this.rules);
 	}
 
 	public static TestGenerator getInstance() {
