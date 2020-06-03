@@ -2,6 +2,7 @@ package de.cognicrypt.testgenerator.utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -21,7 +22,11 @@ import org.eclipse.jdt.launching.IVMInstall;
 import org.eclipse.jdt.launching.JavaRuntime;
 import org.eclipse.jdt.launching.LibraryLocation;
 
+import de.cognicrypt.testgenerator.generator.TestGenerator;
+
 public class Utils {
+	
+	static Logger debugLogger = Logger.getLogger(TestGenerator.class.getName());
 
 	/**
 	 * This method creates a empty JavaProject in the current workspace
@@ -32,6 +37,8 @@ public class Utils {
 	 */
 	public static IJavaProject createJavaProject(final String projectName) throws CoreException {
 
+		debugLogger.info("Creating " + projectName + " project.");
+		
 		final IWorkspaceRoot workSpaceRoot = ResourcesPlugin.getWorkspace().getRoot();
 		deleteProject(workSpaceRoot.getProject(projectName));
 
@@ -67,6 +74,8 @@ public class Utils {
 		System.arraycopy(oldEntries, 0, newEntries, 0, oldEntries.length);
 		newEntries[oldEntries.length] = JavaCore.newSourceEntry(packageRoot.getPath());
 		javaProject.setRawClasspath(newEntries, null);
+		
+		debugLogger.info("Finished creating " + projectName + " project.");
 
 		return javaProject;
 	}
@@ -79,7 +88,11 @@ public class Utils {
 	 * @throws InterruptedException
 	 */
 	public static void deleteProject(final IProject project) throws CoreException {
-		project.delete(true, true, null);
+		if(project.exists()) {
+			debugLogger.info("Deleting existing project.");
+			project.delete(true, true, null);
+			debugLogger.info("Finished deletion.");
+		}
 	}
 	
 	/**

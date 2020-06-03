@@ -42,7 +42,7 @@ import de.cognicrypt.utils.DeveloperProject;
 
 public class TestGenerator {
 
-	Logger LOG = Logger.getLogger(TestGenerator.class.getName());
+	static Logger debugLogger = Logger.getLogger(TestGenerator.class.getName());
 	private IJavaProject javaProject;
 	private IResource targetFile;
 	private CrySLBasedCodeGenerator codeGenerator;
@@ -58,7 +58,7 @@ public class TestGenerator {
 	}
 
 	void initialize() throws CoreException {
-		LOG.setLevel(Level.INFO);
+		debugLogger.setLevel(Level.INFO);
 		this.javaProject = Utils.createJavaProject("UsagePatternTests");
 		this.rules = CrySLUtils.readCrySLRules();
 		this.rdt = new RuleDependencyTree(this.rules);
@@ -71,9 +71,8 @@ public class TestGenerator {
 	public void generateTests() {
 		try {
 			initialize();
-		} catch (CoreException e1) {
-			System.out.println("Failed to initialize project");
-			e1.printStackTrace();
+		} catch (CoreException e) {
+			Activator.getDefault().logError(e, "Failed to initialize project");
 		}
 		List<String> selectedRules = new ArrayList<String>(Arrays.asList("java.security.MessageDigest", "java.security.SecureRandom", 
 				"javax.crypto.SecretKey", "javax.crypto.spec.SecretKeySpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKeyFactory",
@@ -89,7 +88,7 @@ public class TestGenerator {
 			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("java.security.MessageDigest")) {
 			if(selectedRules.contains(curRule.getClassName())) {
-				LOG.info("Creating tests for " + curRule.getClassName());
+				debugLogger.info("Creating tests for " + curRule.getClassName());
 				String testClassName = Utils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
 				try {
 					// FIXME2 this method is only retained because CrySLBasedCodeGenerator constructor requires targetFile. Or else templateClass values can be used to generate class
@@ -98,7 +97,7 @@ public class TestGenerator {
 					this.codeGenerator = new CrySLBasedCodeGenerator(targetFile);
 					this.developerProject = this.codeGenerator.getDeveloperProject();
 				} catch (JavaModelException e) {
-					System.out.println("Unable to create " + testClassName + " class.");
+					debugLogger.log(Level.SEVERE, "Unable to create " + testClassName + " class.");
 					e.printStackTrace();
 				}
 				String genFolder = "";
@@ -178,7 +177,7 @@ public class TestGenerator {
 				try {
 					codeHandler.writeToDisk(genFolder);
 				} catch (Exception e) {
-					e.printStackTrace();
+					Activator.getDefault().logError(e, "Failed to write to disk.");
 				}
 			}
 		}
