@@ -462,7 +462,7 @@ public class TestGenerator {
 			if (parameter.getValue().contains(".")) {
 				// If no value can be assigned add variable to the parameter list of the super method
 				// Check type name for "."
-				imports.add(parameter.getValue());
+				imports.add(parameter.getValue().replace('$', '.'));
 			}	
 
 		}
