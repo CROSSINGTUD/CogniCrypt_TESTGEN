@@ -422,6 +422,20 @@ public class TestGenerator {
 		List<Entry<String, String>> declaredVariables = useMethod.getDeclaredVariables();
 		
 		for (Entry<String, String> parameter : parametersOfCall) {
+			
+			List<Entry<String, String>> tmpVariables = new ArrayList<>();
+			if (declaredVariables.size() > 0) {
+				tmpVariables.addAll(declaredVariables);
+			}
+
+			Optional<Entry<String, String>> typeMatch = tmpVariables.stream()
+				.filter(e -> (de.cognicrypt.utils.Utils.isSubType(e.getValue(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
+			if (typeMatch.isPresent()) {
+				this.codeGenerator.updateToBeEnsured(typeMatch.get());
+				methodParameter = methodParameter.replace(parameter.getKey(), typeMatch.get().getKey());
+				continue;
+			}
+			
 			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> entry = this.codeGenerator.getPredicateConnections().stream().filter(
 					e -> de.cognicrypt.utils.Utils.isSubType(e.getValue().getValue().getClassName(), rule.getClassName()) || de.cognicrypt.utils.Utils.isSubType(rule.getClassName(), e.getValue().getValue().getClassName()))
 					.findFirst();
@@ -433,19 +447,6 @@ public class TestGenerator {
 						continue;
 					}
 				}
-			}
-			
-			List<Entry<String, String>> tmpVariables = new ArrayList<>();
-			if (declaredVariables.size() > 0) {
-				tmpVariables.add(declaredVariables.get(declaredVariables.size() - 1));
-			}
-
-			Optional<Entry<String, String>> typeMatch = tmpVariables.stream()
-				.filter(e -> (de.cognicrypt.utils.Utils.isSubType(e.getValue(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
-			if (typeMatch.isPresent()) {
-				this.codeGenerator.updateToBeEnsured(typeMatch.get());
-				methodParameter = methodParameter.replace(parameter.getKey(), typeMatch.get().getKey());
-				continue;
 			}
 			
 			String name = this.codeGenerator.analyseConstraints(parameter, new CodeGenCrySLRule(rule, null, null), methodNamdResultAssignment.substring(methodNamdResultAssignment.lastIndexOf(".") + 1));
