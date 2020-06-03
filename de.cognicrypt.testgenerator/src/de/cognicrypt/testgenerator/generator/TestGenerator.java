@@ -135,6 +135,7 @@ public class TestGenerator {
 								this.codeGenerator.populatePredicateConnections(nextRule, curRule);
 								relatedRules.add(nextRule);
 								curRule = nextRule;
+								itr = rules.listIterator();
 							}
 						}
 
