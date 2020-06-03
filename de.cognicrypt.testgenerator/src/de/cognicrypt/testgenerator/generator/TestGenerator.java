@@ -276,7 +276,7 @@ public class TestGenerator {
 		List<String> localKillers = new ArrayList<String>();
 		boolean ensures = false;
 
-		List<Entry<String, String>> useMethodParameters = new ArrayList<Entry<String, String>>();
+		List<Entry<String, String>> useMethodVariables = new ArrayList<Entry<String, String>>();
 		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
 
 		StringBuilder instanceName = new StringBuilder();
@@ -307,7 +307,7 @@ public class TestGenerator {
 			Entry<String, List<Entry<String, String>>> methodInvocationWithUseMethodParameters = generateMethodInvocation(useMethod, lastInvokedMethod, imports, method, methodName,
 					parameters, rule, sourceLineGenerator, lastRule, instanceName);
 			
-			useMethodParameters.addAll(methodInvocationWithUseMethodParameters.getValue());
+			useMethodVariables.addAll(methodInvocationWithUseMethodParameters.getValue());
 			String methodInvocation = methodInvocationWithUseMethodParameters.getKey();
 			// Add new generated method invocation
 			if (!methodInvocation.isEmpty()) {
@@ -319,32 +319,23 @@ public class TestGenerator {
 				methodInvocation = "";
 			}
 		}
+		
+		useMethod.addVariablesToBody(useMethodVariables);
 
-		if(!lastRule) {
+		if(lastRule) {
+			if (this.codeGenerator.getToBeEnsuredPred() == null) {
+				this.codeGenerator.getKills().addAll(localKillers);
+			} else {
+				this.codeGenerator.setToBeEnsuredPred(pre);
+			}
+			return methodInvocations;
+		} else {	
 			if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
 				this.codeGenerator.getKills().addAll(localKillers);
-				for (Entry<String, String> par : useMethodParameters) {
-					//				if(par.getValue().contains("."))
-					//					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
-					useMethod.addParameter(par);
-				}
 				return methodInvocations;
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
 				return new ArrayList<String>();
-			}
-		} else {
-			if (this.codeGenerator.getToBeEnsuredPred() == null) {
-				this.codeGenerator.getKills().addAll(localKillers);
-				for (Entry<String, String> par : useMethodParameters) {
-					//				if(par.getValue().contains("."))
-					//					par.setValue(par.getValue().substring(par.getValue().lastIndexOf(".") + 1));
-					useMethod.addParameter(par);
-				}
-				return methodInvocations;
-			} else {
-				this.codeGenerator.setToBeEnsuredPred(pre);
-				return methodInvocations;
 			}
 		}
 	}
