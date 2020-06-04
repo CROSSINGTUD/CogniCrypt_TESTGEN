@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
@@ -21,8 +22,13 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.launching.IVMInstall;
 import org.eclipse.jdt.launching.JavaRuntime;
 import org.eclipse.jdt.launching.LibraryLocation;
+import org.eclipse.jdt.ui.actions.FormatAllAction;
+import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.ide.IDE;
 
 import de.cognicrypt.testgenerator.generator.TestGenerator;
+import de.cognicrypt.utils.DeveloperProject;
+import de.cognicrypt.utils.UIUtils;
 
 public class Utils {
 	
@@ -117,5 +123,20 @@ public class Utils {
 	public static String retrieveOnlyClassName(String className) {
 		String[] values = className.split("\\.");
 		return values[values.length-1];
+	}
+	
+	public static void cleanUpProject(DeveloperProject project) throws CoreException {
+		project.refresh();
+		final ICompilationUnit[] units = project.getPackagesOfProject("jca").getCompilationUnits();
+
+		if (units.length > 0 && units[0].getResource().getType() == IResource.FILE) {
+			IFile genClass = (IFile) units[0].getResource();
+			IDE.openEditor(UIUtils.getCurrentlyOpenPage(), genClass);
+			IEditorPart editor = UIUtils.getCurrentlyOpenPage().getActiveEditor();
+			final FormatAllAction faa = new FormatAllAction(editor.getSite());
+			faa.runOnMultiple(units);
+		} else {
+			debugLogger.info("No files found.");
+		}
 	}
 }

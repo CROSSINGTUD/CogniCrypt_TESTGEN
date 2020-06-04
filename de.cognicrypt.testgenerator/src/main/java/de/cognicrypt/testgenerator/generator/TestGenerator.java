@@ -186,6 +186,13 @@ public class TestGenerator {
 				}
 			}
 		}
+		debugLogger.info("Cleaning up generated project.");
+		try {
+			Utils.cleanUpProject(developerProject);
+		} catch (CoreException e) {
+			Activator.getDefault().logError(e, "Failed to clean up.");
+		}
+		debugLogger.info("Finished clean up.");
 	}
 
 	public void printPredicateConnections(CrySLRule rule) {
