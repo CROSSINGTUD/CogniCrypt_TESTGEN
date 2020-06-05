@@ -115,7 +115,7 @@ public class TestGenerator {
 				
 				Set<GeneratorClass> generatedClasses = new HashSet<GeneratorClass>();
 				
-				GeneratorClass templateClass = new GeneratorClass();
+				GeneratorTestClass templateClass = new GeneratorTestClass();
 				templateClass.setPackageName("jca");
 				templateClass.setModifier("public");
 				templateClass.setClassName(testClassName);
