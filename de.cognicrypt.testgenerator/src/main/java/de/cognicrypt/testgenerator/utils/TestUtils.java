@@ -1,5 +1,6 @@
 package de.cognicrypt.testgenerator.utils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -28,9 +29,11 @@ import org.eclipse.ui.ide.IDE;
 
 import com.google.common.base.Defaults;
 
+import de.cognicrypt.testgenerator.Activator;
 import de.cognicrypt.testgenerator.generator.TestGenerator;
 import de.cognicrypt.utils.DeveloperProject;
 import de.cognicrypt.utils.UIUtils;
+import de.cognicrypt.utils.Utils;
 
 public class TestUtils {
 	
@@ -162,5 +165,9 @@ public class TestUtils {
 			default:
 				throw new IllegalArgumentException("Type " + type + " not supported");
 		}
+	}
+	
+	public static File getResourceFromWithin(final String inputPath) {
+		return Utils.getResourceFromWithin(inputPath, Activator.PLUGIN_ID);
 	}
 }

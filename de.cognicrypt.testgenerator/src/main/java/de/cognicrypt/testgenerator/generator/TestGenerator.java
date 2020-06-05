@@ -1,5 +1,7 @@
 package de.cognicrypt.testgenerator.generator;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +14,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -177,6 +178,7 @@ public class TestGenerator {
 					templateClass.addImports(imports);
 				}
 				
+				templateClass.addImport("org.junit.Test");
 				generatedClasses.add(templateClass);
 				CodeHandler codeHandler = new CodeHandler(generatedClasses);
 				try {
@@ -186,6 +188,7 @@ public class TestGenerator {
 				}
 			}
 		}
+		addAdditionalFiles("lib");
 		debugLogger.info("Cleaning up generated project.");
 		try {
 			TestUtils.cleanUpProject(developerProject);
@@ -476,5 +479,32 @@ public class TestGenerator {
 		
 		currentInvokedMethod = methodNamdResultAssignment + methodParameter + appendix;
 		return new SimpleEntry<>(currentInvokedMethod, parametersOfUseMethod);
+	}
+	
+	public boolean addAdditionalFiles(final String source) {
+		if (source.isEmpty()) {
+			return true;
+		}
+		try {
+			File pathToAddFiles = TestUtils.getResourceFromWithin(source);
+			if (pathToAddFiles == null || !pathToAddFiles.exists()) {
+				return true;
+			}
+
+			final File[] members = pathToAddFiles.listFiles();
+			if (members == null) {
+				Activator.getDefault().logError(Constants.ERROR_MESSAGE_NO_ADDITIONAL_RES_DIRECTORY);
+			}
+			for (int i = 0; i < members.length; i++) {
+				final File addFile = members[i];
+				if (!this.codeGenerator.addAddtionalFile(addFile)) {
+					return false;
+				}
+			}
+		} catch (IOException | CoreException e) {
+			Activator.getDefault().logError(e, "An error occured during library addition.");
+			return false;
+		}
+		return true;
 	}
 }
