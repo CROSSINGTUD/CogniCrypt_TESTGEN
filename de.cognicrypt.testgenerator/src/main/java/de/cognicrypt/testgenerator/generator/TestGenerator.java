@@ -153,7 +153,7 @@ public class TestGenerator {
 				StateMachineGraph stateMachine = curRule1.getUsagePattern();
 				Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
 				while(transitions.hasNext()) {
-					GeneratorMethod templateMethod = generateMethod();
+					GeneratorTest templateMethod = generateMethod();
 					templateClass.addMethod(templateMethod);
 
 					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
@@ -215,7 +215,7 @@ public class TestGenerator {
 	}
 	
 	public void populateMethod(GeneratorClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
-			List<CrySLRule> relatedRules, String usedClass, GeneratorMethod templateMethod) {
+			List<CrySLRule> relatedRules, String usedClass, GeneratorTest templateMethod) {
 		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
 		for (CrySLRule rule : relatedRules) {
 			boolean next = true;
@@ -266,9 +266,9 @@ public class TestGenerator {
 		}
 	}
 
-	public GeneratorMethod generateMethod() {
+	public GeneratorTest generateMethod() {
 
-		GeneratorMethod templateMethod = new GeneratorMethod();
+		GeneratorTest templateMethod = new GeneratorTest();
 		templateMethod.setModifier("public");
 		templateMethod.setReturnType("void");
 		templateMethod.setName("validTest" + ++numberOfTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
@@ -277,7 +277,7 @@ public class TestGenerator {
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private ArrayList<String> generateMethodInvocations(GeneratorClass templateClass, CrySLRule rule, GeneratorMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private ArrayList<String> generateMethodInvocations(GeneratorClass templateClass, CrySLRule rule, GeneratorTest useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
