@@ -7,7 +7,7 @@ import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.testgenerator.utils.TestUtils;
 import de.cognicrypt.utils.Utils;
 
-public class GeneratorTest extends GeneratorMethod {
+public class GeneratorTestMethod extends GeneratorMethod {
 	
 	public void addVariablesToBody(List<Entry<String, String>> variables) {
 		for (Entry<String, String> var : variables) {
