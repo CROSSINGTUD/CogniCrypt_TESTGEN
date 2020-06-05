@@ -26,6 +26,8 @@ import org.eclipse.jdt.ui.actions.FormatAllAction;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ide.IDE;
 
+import com.google.common.base.Defaults;
+
 import de.cognicrypt.testgenerator.generator.TestGenerator;
 import de.cognicrypt.utils.DeveloperProject;
 import de.cognicrypt.utils.UIUtils;
@@ -137,6 +139,28 @@ public class TestUtils {
 			faa.runOnMultiple(units);
 		} else {
 			debugLogger.info("No files found.");
+		}
+	}
+	
+	public static String getDefaultValue(String type) {
+
+		switch(type) {
+			case "byte":
+				return Defaults.defaultValue(Byte.TYPE).toString();
+			case "short":
+				return Defaults.defaultValue(Short.TYPE).toString();
+			case "int":
+				return Defaults.defaultValue(Integer.TYPE).toString();
+			case "long":
+				return Defaults.defaultValue(Long.TYPE).toString();
+			case "float":
+				return Defaults.defaultValue(Float.TYPE).toString();
+			case "double":
+				return Defaults.defaultValue(Double.TYPE).toString();
+			case "boolean":
+				return Defaults.defaultValue(Boolean.TYPE).toString();
+			default:
+				throw new IllegalArgumentException("Type " + type + " not supported");
 		}
 	}
 }
