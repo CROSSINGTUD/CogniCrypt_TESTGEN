@@ -37,7 +37,7 @@ import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
 import de.cognicrypt.core.Constants;
 import de.cognicrypt.utils.CrySLUtils;
-import de.cognicrypt.testgenerator.utils.Utils;
+import de.cognicrypt.testgenerator.utils.TestUtils;
 import de.cognicrypt.utils.DeveloperProject;
 
 public class TestGenerator {
@@ -66,7 +66,7 @@ public class TestGenerator {
 
 	void initialize() throws CoreException {
 		debugLogger.setLevel(Level.INFO);
-		this.javaProject = Utils.createJavaProject("UsagePatternTests");
+		this.javaProject = TestUtils.createJavaProject("UsagePatternTests");
 	}
 
 	public static TestGenerator getInstance() {
@@ -94,11 +94,11 @@ public class TestGenerator {
 //			if(curRule.getClassName().equals("java.security.KeyStore")) {
 			if(selectedRules.contains(curRule.getClassName())) {
 				debugLogger.info("Creating tests for " + curRule.getClassName());
-				String testClassName = Utils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
+				String testClassName = TestUtils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
 				try {
 					// FIXME2 this method is only retained because CrySLBasedCodeGenerator constructor requires targetFile. Or else templateClass values can be used to generate class
 					
-					this.targetFile = Utils.generateJavaClassInJavaProject(this.javaProject, "jca", testClassName);
+					this.targetFile = TestUtils.generateJavaClassInJavaProject(this.javaProject, "jca", testClassName);
 					this.codeGenerator = new CrySLBasedCodeGenerator(targetFile);
 					this.developerProject = this.codeGenerator.getDeveloperProject();
 				} catch (JavaModelException e) {
@@ -188,7 +188,7 @@ public class TestGenerator {
 		}
 		debugLogger.info("Cleaning up generated project.");
 		try {
-			Utils.cleanUpProject(developerProject);
+			TestUtils.cleanUpProject(developerProject);
 		} catch (CoreException e) {
 			Activator.getDefault().logError(e, "Failed to clean up.");
 		}
@@ -196,12 +196,12 @@ public class TestGenerator {
 	}
 
 	public void printPredicateConnections(CrySLRule rule) {
-		System.out.print("PC : " + Utils.retrieveOnlyClassName(rule.getClassName()));
+		System.out.print("PC : " + TestUtils.retrieveOnlyClassName(rule.getClassName()));
 		List<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> connections = this.codeGenerator.getPredicateConnections();
 		for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> c : connections) {
 			CrySLPredicate key = c.getKey();
 			Entry<CrySLRule, CrySLRule> value = c.getValue();
-			System.out.print(" -> " + Utils.retrieveOnlyClassName(value.getKey().getClassName()));
+			System.out.print(" -> " + TestUtils.retrieveOnlyClassName(value.getKey().getClassName()));
 		}
 		System.out.println("\n");
 	}
@@ -356,7 +356,7 @@ public class TestGenerator {
 		String methodInvocation = "";
 
 		String className = rule.getClassName();
-		String simpleName = Utils.retrieveOnlyClassName(className);
+		String simpleName = TestUtils.retrieveOnlyClassName(className);
 		String instanceName = simpleName.substring(0, 1).toLowerCase() + simpleName.substring(1);
 		
 		if(instanceName1.toString().isEmpty())	

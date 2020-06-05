@@ -30,7 +30,7 @@ import de.cognicrypt.testgenerator.generator.TestGenerator;
 import de.cognicrypt.utils.DeveloperProject;
 import de.cognicrypt.utils.UIUtils;
 
-public class Utils {
+public class TestUtils {
 	
 	static Logger debugLogger = Logger.getLogger(TestGenerator.class.getName());
 
