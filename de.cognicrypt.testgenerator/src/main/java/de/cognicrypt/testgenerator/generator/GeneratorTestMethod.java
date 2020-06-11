@@ -1,8 +1,8 @@
 package de.cognicrypt.testgenerator.generator;
 
-import java.util.List;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.testgenerator.utils.TestUtils;
@@ -10,7 +10,7 @@ import de.cognicrypt.utils.Utils;
 
 public class GeneratorTestMethod extends GeneratorMethod {
 	
-	public void addVariablesToBody(List<Entry<String, String>> variables) {
+	public void addVariablesToBody(Set<Entry<String, String>> variables) {
 		for (Entry<String, String> var : variables) {
 			String type = var.getValue();
 			String name = var.getKey();

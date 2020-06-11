@@ -286,7 +286,7 @@ public class TestGenerator {
 		List<String> localKillers = new ArrayList<String>();
 		boolean ensures = false;
 
-		List<Entry<String, String>> useMethodVariables = new ArrayList<Entry<String, String>>();
+		Set<Entry<String, String>> useMethodVariables = new HashSet<Entry<String, String>>();
 		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
 
 		StringBuilder instanceName = new StringBuilder();
