@@ -396,7 +396,7 @@ public class TestGenerator {
 					}
 					// Not the last invoked method and return type is not equal to "void".
 					else if (!methodName.equals(lastInvokedMethod) && !returnValueType.equals(voidString)) {
-						methodInvocation = returnValueType + " = " + instanceName + "." + currentInvokedMethod;
+						methodInvocation = returnValueType + " " + method.getRetObject().getKey() + " = " + instanceName + "." + currentInvokedMethod;
 						generated = true;
 					}
 				}
