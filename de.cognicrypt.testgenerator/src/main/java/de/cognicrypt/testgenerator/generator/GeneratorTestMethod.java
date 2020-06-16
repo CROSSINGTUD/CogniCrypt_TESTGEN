@@ -2,6 +2,8 @@ package de.cognicrypt.testgenerator.generator;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
@@ -43,5 +45,42 @@ public class GeneratorTestMethod extends GeneratorMethod {
 		}
 		body.append(statement);
 		body.append("\n");
+	}
+	
+	public String toString() {
+		
+		String annotation = "@Test\n";
+		StringBuilder method = new StringBuilder(annotation);
+		String signature = getModifier() + " " + getReturnType() + " " + getName() + "(";
+		method.append(signature);
+		for (int i = 0; i < getParameters().size(); i++) {
+			Entry<String, String> parAtI = getParameters().get(i);
+			method.append(parAtI.getValue());
+			method.append(" ");
+			method.append(parAtI.getKey());
+			if (i < getParameters().size() - 1) {
+				method.append(",");
+			}
+		}
+		method.append(")");
+		if (getExceptions().size() > 0) {
+			method.append(" throws ");
+			List<String> exAsList = new ArrayList<String>(getExceptions());
+			for (int i = 0; i < getExceptions().size(); i++) {
+				method.append(exAsList.get(i));
+				if (i < getExceptions().size() - 1) {
+					method.append(", ");
+				}
+			}
+		}
+
+		method.append("{ \n");
+		method.append(body.toString().replaceAll(",\\s+\\)", ")"));
+		method.append("\n}");
+		if (getKillStatements() != null) {
+			return method.toString().replace("return ", getKillStatements().toString() + "\n return ");
+		} else {
+			return method.toString();
+		}
 	}
 }

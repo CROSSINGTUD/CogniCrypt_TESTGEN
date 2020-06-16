@@ -92,8 +92,8 @@ public class TestGenerator {
 		for (CrySLRule curRule : rules) {
 			numberOfTestCases = 0;
 			// FIXME2 only for testing purpose
-			if(curRule.getClassName().equals("java.security.KeyStore")) {
-//			if(selectedRules.contains(curRule.getClassName())) {
+//			if(curRule.getClassName().equals("javax.crypto.spec.GCMParameterSpec")) {
+			if(selectedRules.contains(curRule.getClassName())) {
 				debugLogger.info("Creating tests for " + curRule.getClassName());
 				String testClassName = TestUtils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
 				try {
@@ -120,6 +120,9 @@ public class TestGenerator {
 				templateClass.setPackageName("jca");
 				templateClass.setModifier("public");
 				templateClass.setClassName(testClassName);
+				
+				templateClass.addMethod(generateOverriddenMethods());
+				
 				Map<String, List<CrySLPredicate>> reliablePreds = new HashMap<String, List<CrySLPredicate>>();
 				
 				// NOTE2 In case of tests generation there is no template method which uses only subset of rules. Instead we
@@ -167,18 +170,12 @@ public class TestGenerator {
 
 					Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
-					ArrayList<String> methodInvocations = generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true);
-
-					templateMethod.addStatementToBody("");
-					for (String methodInvocation : methodInvocations) {
-						templateMethod.addStatementToBody(methodInvocation);
-					}
-						
-					templateMethod.addExceptions(this.codeGenerator.getExceptions());
-					templateClass.addImports(imports);
+					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true);
 				}
 				
-				templateClass.addImport("org.junit.Test");
+				List<String> testImports = Arrays.asList(new String[]{"org.junit.Test", "test.UsagePatternTestingFramework", "test.assertions.Assertions"});
+				templateClass.addImports(testImports);
+
 				generatedClasses.add(templateClass);
 				CodeHandler codeHandler = new CodeHandler(generatedClasses);
 				try {
@@ -196,6 +193,27 @@ public class TestGenerator {
 			Activator.getDefault().logError(e, "Failed to clean up.");
 		}
 		debugLogger.info("Finished clean up.");
+	}
+
+	private GeneratorMethod generateOverriddenMethods() {
+		GeneratorMethod method = new GeneratorMethod();
+		method.setModifier("protected");
+		method.setReturnType("Ruleset");
+		method.setName("getRuleSet");
+		method.addStatementToBody("return Ruleset.JavaCryptographicArchitecture;");
+		return method;
+	}
+
+	public void generate(GeneratorTestClass templateClass, GeneratorTestMethod templateMethod,
+			List<String> imports, ArrayList<String> methodInvocations, String instanceName) {
+		templateMethod.addStatementToBody("");
+		for (String methodInvocation : methodInvocations) {
+			templateMethod.addStatementToBody(methodInvocation);
+		}
+		templateMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
+		
+		templateMethod.addExceptions(this.codeGenerator.getExceptions());
+		templateClass.addImports(imports);
 	}
 
 	public void printPredicateConnections(CrySLRule rule) {
@@ -217,7 +235,7 @@ public class TestGenerator {
 		});
 	}
 	
-	public void populateMethod(GeneratorClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
+	public void populateMethod(GeneratorTestClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
 			List<CrySLRule> relatedRules, String usedClass, GeneratorTestMethod templateMethod) {
 		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
 		for (CrySLRule rule : relatedRules) {
@@ -241,9 +259,9 @@ public class TestGenerator {
 				//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
 				//						ArrayList<String> methodInvocations = this.codeGenerator.generateMethodInvocations(dummyRule, templateMethod, currentTransitions, mayUsePreds, imports, lastRule);
 
-				ArrayList<String> methodInvocations = generateMethodInvocations(templateClass, rule, templateMethod, currentTransition, mayUsePreds, imports, false);
+				boolean generated = generateMethodInvocations(templateClass, rule, templateMethod, currentTransition, mayUsePreds, imports, false);
 
-				if (methodInvocations.isEmpty()) {
+				if (!generated) {
 					continue;
 				}
 
@@ -254,14 +272,6 @@ public class TestGenerator {
 //					this.codeGenerator.getPredicateConnections().remove(indexOf);
 //					this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
 //				}
-
-				templateMethod.addStatementToBody("");
-				for (String methodInvocation : methodInvocations) {
-					templateMethod.addStatementToBody(methodInvocation);
-				}
-
-				templateMethod.addExceptions(this.codeGenerator.getExceptions());
-				templateClass.addImports(imports);
 
 				reliablePreds.put(rule.getClassName(), rule.getPredicates());
 				next = false;
@@ -280,7 +290,7 @@ public class TestGenerator {
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private ArrayList<String> generateMethodInvocations(GeneratorClass templateClass, CrySLRule rule, GeneratorTestMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private boolean generateMethodInvocations(GeneratorTestClass templateClass, CrySLRule rule, GeneratorTestMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
@@ -338,14 +348,16 @@ public class TestGenerator {
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
 			}
-			return methodInvocations;
+			generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString());
+			return true;
 		} else {	
 			if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
 				this.codeGenerator.getKills().addAll(localKillers);
-				return methodInvocations;
+				generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString());
+				return true;
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
-				return new ArrayList<String>();
+				return false;
 			}
 		}
 	}

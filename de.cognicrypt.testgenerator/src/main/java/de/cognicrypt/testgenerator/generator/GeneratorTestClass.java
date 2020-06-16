@@ -15,10 +15,9 @@ public class GeneratorTestClass extends GeneratorClass {
 			classContent.append(";\n");
 		}
 		classContent.append("\n");
-		classContent.append(getModifier() + " class " + getClassName() + " {\n");
+		classContent.append(getModifier() + " class " + getClassName() + " extends UsagePatternTestingFramework {\n");
 
 		for (GeneratorMethod genMeth : getMethods()) {
-			classContent.append("@Test\n");
 			classContent.append(genMeth);
 			classContent.append("\n");
 		}
