@@ -212,6 +212,13 @@ public class TestGenerator {
 		}
 		templateMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
 		
+		CrySLPredicate predicate = codeGenerator.getToBeEnsuredPred().getKey();
+		String param = predicate.getParameters().get(0).getName();
+		if(param.equals("this"))
+			templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + instanceName + ");");
+		else
+			templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + param + ");");
+		
 		templateMethod.addExceptions(this.codeGenerator.getExceptions());
 		templateClass.addImports(imports);
 	}
