@@ -17,7 +17,7 @@ public class GeneratorTestMethod extends GeneratorMethod {
 			String type = var.getValue();
 			String name = var.getKey();
 			try {
-				Class.forName(type);
+				Class.forName(type.replaceAll("[\\[\\]]",""));
 				String simpleType = Utils.retrieveOnlyClassName(type);
 				addStatementToBody(simpleType + " " + name + " = null;");
 			} catch (ClassNotFoundException e) {
@@ -36,9 +36,10 @@ public class GeneratorTestMethod extends GeneratorMethod {
 			String[] varDecl = statement.substring(0, index).split(" ");
 			if (varDecl.length == 2) {
 				SimpleEntry<String, String> newVar = new SimpleEntry<>(varDecl[1], varDecl[0]);
-				if (!getDeclaredVariables().contains(newVar)) {
-					getDeclaredVariables().add(newVar);
+				if (getDeclaredVariables().contains(newVar)) {
+					return;
 				}
+				getDeclaredVariables().add(newVar);
 				String simpleVarType = Utils.retrieveOnlyClassName(newVar.getValue());
 				statement = simpleVarType + " " + varDecl[1] + " = " + statement.split(" = ")[1];
 			}
