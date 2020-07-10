@@ -173,7 +173,7 @@ public class TestGenerator {
 					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true);
 				}
 				
-				List<String> testImports = Arrays.asList(new String[]{"org.junit.Test", "test.UsagePatternTestingFramework", "test.assertions.Assertions"});
+				List<String> testImports = Arrays.asList(new String[]{"org.junit.Test", "test.UsagePatternTestingFramework", "test.assertions.Assertions", "crypto.analysis.CrySLRulesetSelector.Ruleset"});
 				templateClass.addImports(testImports);
 
 				generatedClasses.add(templateClass);
