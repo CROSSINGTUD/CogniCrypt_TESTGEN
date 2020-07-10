@@ -87,8 +87,9 @@ public class TestGenerator {
 				"java.security.spec.DSAGenParameterSpec", "javax.crypto.spec.GCMParameterSpec", "javax.xml.crypto.dsig.spec.HMACParameterSpec",
 				"javax.crypto.spec.IvParameterSpec", "java.security.Key", "java.security.KeyPairGenerator", "javax.net.ssl.KeyStoreBuilderParameters",
 				"javax.crypto.spec.PBEKeySpec", "javax.crypto.spec.PBEParameterSpec", "java.security.cert.PKIXBuilderParameters",
-				"java.security.cert.PKIXParameters", "java.security.spec.RSAKeyGenParameterSpec",
-				"javax.net.ssl.TrustManagerFactory"));
+				"java.security.cert.PKIXParameters", "java.security.spec.RSAKeyGenParameterSpec", "javax.net.ssl.TrustManagerFactory", 
+				"java.security.KeyPair", "javax.net.ssl.KeyManagerFactory", "javax.net.ssl.KeyStoreBuilderParameters","java.security.spec.DSAParameterSpec", 
+				"javax.net.ssl.SSLParameters", "javax.net.ssl.SSLEngine", "javax.net.ssl.SSLContext"));
 		for (CrySLRule curRule : rules) {
 			numberOfTestCases = 0;
 			// FIXME2 only for testing purpose
