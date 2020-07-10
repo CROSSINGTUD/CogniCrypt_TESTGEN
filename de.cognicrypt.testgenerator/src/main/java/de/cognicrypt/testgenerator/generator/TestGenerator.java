@@ -423,7 +423,7 @@ public class TestGenerator {
 					if (!returnValueType.equals(voidString)) {
 						String simpleType = returnValueType.substring(returnValueType.lastIndexOf('.') + 1);
 						if (Character.isUpperCase(simpleType.charAt(0))) {
-							methodInvocation = simpleType + " " + Character.toLowerCase(simpleType.charAt(0)) + simpleType
+							methodInvocation = returnValueType + " " + Character.toLowerCase(simpleType.charAt(0)) + simpleType
 									.substring(1) + " = " + instanceName + "." + currentInvokedMethod;
 						} else {
 							methodInvocation = returnValueType + " " + method.getRetObject().getKey() + " = " + instanceName + "." + currentInvokedMethod;
