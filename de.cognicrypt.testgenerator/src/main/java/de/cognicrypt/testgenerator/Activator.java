@@ -1,9 +1,9 @@
 package de.cognicrypt.testgenerator;
 
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
-
-import de.cognicrypt.testgenerator.generator.TestGenerator;
 
 /**
  * The activator class controls the plug-in life cycle
@@ -20,6 +20,22 @@ public class Activator extends AbstractUIPlugin {
 	 * The constructor
 	 */
 	public Activator() {
+	}
+	
+	private void log(final int severity, final String message, final Exception ex) {
+		getLog().log(new Status(severity, Activator.PLUGIN_ID, message, ex));
+	}
+
+	public void logError(final Exception ex) {
+		logError(ex, ex.getMessage());
+	}
+
+	public void logError(final Exception ex, final String message) {
+		log(IStatus.ERROR, message, ex);
+	}
+
+	public void logError(final String message) {
+		log(IStatus.ERROR, message, null);
 	}
 
 	@Override
