@@ -1,6 +1,8 @@
 package de.cognicrypt.testgenerator.generator;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ import de.cognicrypt.core.Constants;
 import de.cognicrypt.utils.CrySLUtils;
 import de.cognicrypt.testgenerator.utils.TestUtils;
 import de.cognicrypt.utils.DeveloperProject;
+import de.cognicrypt.utils.Utils;
 
 public class TestGenerator {
 
@@ -85,16 +88,23 @@ public class TestGenerator {
 		} catch (CoreException e) {
 			Activator.getDefault().logError(e, "Failed to initialize project");
 		}
-		List<String> selectedRules = new ArrayList<String>(Arrays.asList("java.security.MessageDigest", "java.security.SecureRandom", 
-				"javax.crypto.SecretKey", "javax.crypto.spec.SecretKeySpec", "javax.crypto.KeyGenerator", "javax.crypto.SecretKeyFactory",
-				"java.security.KeyStore", "javax.crypto.spec.DHParameterSpec", "javax.net.ssl.TrustManagerFactory", 
-				"java.security.AlgorithmParameters", "javax.net.ssl.CertPathTrustManagerParameters", "javax.crypto.spec.DHGenParameterSpec", 
-				"java.security.spec.DSAGenParameterSpec", "javax.crypto.spec.GCMParameterSpec", "javax.xml.crypto.dsig.spec.HMACParameterSpec",
-				"javax.crypto.spec.IvParameterSpec", "java.security.Key", "java.security.KeyPairGenerator", "javax.net.ssl.KeyStoreBuilderParameters",
-				"javax.crypto.spec.PBEKeySpec", "javax.crypto.spec.PBEParameterSpec", "java.security.cert.PKIXBuilderParameters",
-				"java.security.cert.PKIXParameters", "java.security.spec.RSAKeyGenParameterSpec", "javax.net.ssl.TrustManagerFactory", 
-				"java.security.KeyPair", "javax.net.ssl.KeyManagerFactory", "javax.net.ssl.KeyStoreBuilderParameters","java.security.spec.DSAParameterSpec", 
-				"javax.net.ssl.SSLParameters", "javax.net.ssl.SSLEngine", "javax.net.ssl.SSLContext"));
+		
+		File file = Utils.getResourceFromWithin("resources/selected_rules.txt", de.cognicrypt.testgenerator.Activator.PLUGIN_ID);
+		List<String> selectedRules = new ArrayList<String>();
+		try {
+			BufferedReader bufferReader = new BufferedReader(new FileReader(file));
+			try {
+				String line;
+				while ((line = bufferReader.readLine()) != null) {
+					selectedRules.add(line);
+				}
+			} finally {
+				bufferReader.close();
+			}
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to read from selected_rules.txt", e);
+		} 
+		
 		for (CrySLRule curRule : rules) {
 			numberOfValidTestCases = 0;
 			numberOfInvalidTestCases = 0;
