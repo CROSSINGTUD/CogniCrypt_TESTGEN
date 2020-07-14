@@ -6,9 +6,11 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -16,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
@@ -36,6 +39,7 @@ import de.cognicrypt.codegenerator.generator.CrySLBasedCodeGenerator;
 import de.cognicrypt.codegenerator.generator.GeneratorClass;
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
+import de.cognicrypt.codegenerator.generator.StateMachineGraphAnalyser;
 import de.cognicrypt.core.Constants;
 import de.cognicrypt.utils.CrySLUtils;
 import de.cognicrypt.testgenerator.utils.TestUtils;
@@ -50,7 +54,8 @@ public class TestGenerator {
 	private DeveloperProject developerProject;
 	private static List<CrySLRule> rules;
 	private static RuleDependencyTree rdt;
-	private static int numberOfTestCases;
+	private static int numberOfValidTestCases;
+	private static int numberOfInvalidTestCases;
 
 	private static TestGenerator testGenerator = new TestGenerator();
 
@@ -91,7 +96,8 @@ public class TestGenerator {
 				"java.security.KeyPair", "javax.net.ssl.KeyManagerFactory", "javax.net.ssl.KeyStoreBuilderParameters","java.security.spec.DSAParameterSpec", 
 				"javax.net.ssl.SSLParameters", "javax.net.ssl.SSLEngine", "javax.net.ssl.SSLContext"));
 		for (CrySLRule curRule : rules) {
-			numberOfTestCases = 0;
+			numberOfValidTestCases = 0;
+			numberOfInvalidTestCases = 0;
 			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("javax.crypto.spec.GCMParameterSpec")) {
 			if(selectedRules.contains(curRule.getClassName())) {
@@ -156,27 +162,53 @@ public class TestGenerator {
 
 				String usedClass = curRule1.getClassName();
 				StateMachineGraph stateMachine = curRule1.getUsagePattern();
-				Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
-				while(transitions.hasNext()) {
-					GeneratorTestMethod templateMethod = generateMethod();
+				Iterator<List<TransitionEdge>> validTransitions = getValidTransitionsFromStateMachine(stateMachine);
+				
+				GeneratorTestMethod templateMethod = null;
+				List<TransitionEdge> currentTransition = null;
+				ArrayList<String> imports = null;
+				Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = null;
+				
+				while(validTransitions.hasNext()) {
+					templateMethod = generateMethod(true);
 					templateClass.addMethod(templateMethod);
 
 					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
 
 					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(curRule1.getPredicates().get(0), new SimpleEntry(curRule1, null)));
+					currentTransition = validTransitions.next();
+					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
-					List<TransitionEdge> currentTransition = transitions.next();
+					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true, true);
+				}
+				
+				// case 1 : only generate target rule object correctly => RequiredPredicateError
+				if (relatedRules.size() > 0) {
+					templateMethod = generateMethod(false);
+					templateClass.addMethod(templateMethod);
+					
+					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true, false);
+				}
+				
+				// case 2 : generate required objects correctly + target rule object incorrectly => IncompleteOperationError
+				Iterator<List<TransitionEdge>> invalidTransitions = getInvalidTransitionsFromStateMachine(stateMachine);
+				while(invalidTransitions.hasNext()) {
+					templateMethod = generateMethod(false);
+					templateClass.addMethod(templateMethod);
 
-					ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
+					
+//					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(curRule1.getPredicates().get(0), new SimpleEntry(curRule1, null)));
+					currentTransition = invalidTransitions.next();
+					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
-					Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
-
-					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true);
+					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true, false);
 				}
 				
 				List<String> testImports = Arrays.asList(new String[]{"org.junit.Test", "test.UsagePatternTestingFramework", "test.assertions.Assertions", "crypto.analysis.CrySLRulesetSelector.Ruleset"});
 				templateClass.addImports(testImports);
-
 				generatedClasses.add(templateClass);
 				CodeHandler codeHandler = new CodeHandler(generatedClasses);
 				try {
@@ -196,6 +228,83 @@ public class TestGenerator {
 		debugLogger.info("Finished clean up.");
 	}
 
+	private Iterator<List<TransitionEdge>> getValidTransitionsFromStateMachine(StateMachineGraph stateMachine) {
+		// analyse state machine
+		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
+		ArrayList<List<TransitionEdge>> transitionsList;
+		Iterator<List<TransitionEdge>> transitions = null;
+		try {
+			transitionsList = stateMachineGraphAnalyser.getTransitions();
+			transitionsList.sort(new Comparator<List<TransitionEdge>>() {
+
+				@Override
+				public int compare(List<TransitionEdge> element1, List<TransitionEdge> element2) {
+					return Integer.compare(element1.size(), element2.size());
+				}
+			});
+			transitions = transitionsList.iterator();
+		} catch (Exception e) {
+			Activator.getDefault().logError(e);
+		}
+		return transitions;
+	}
+
+	private Iterator<List<TransitionEdge>> getInvalidTransitionsFromStateMachine(StateMachineGraph stateMachine) {
+		// analyse state machine
+		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
+		ArrayList<List<TransitionEdge>> transitionsList;
+		Iterator<List<TransitionEdge>> transitions = null;
+		try {
+			transitionsList = stateMachineGraphAnalyser.getTransitions();
+			ArrayList<List<TransitionEdge>> invalidTransitionsList = composeInvalidTransitions(transitionsList);
+			invalidTransitionsList.sort(new Comparator<List<TransitionEdge>>() {
+
+				@Override
+				public int compare(List<TransitionEdge> element1, List<TransitionEdge> element2) {
+					return Integer.compare(element1.size(), element2.size());
+				}
+			});
+			transitions = invalidTransitionsList.iterator();
+		} catch (Exception e) {
+			Activator.getDefault().logError(e);
+		}
+		return transitions;
+	}
+
+	private ArrayList<List<TransitionEdge>> composeInvalidTransitions(ArrayList<List<TransitionEdge>> transitionsList) {
+		LinkedHashSet<List<TransitionEdge>> resultantList = new LinkedHashSet<List<TransitionEdge>>();
+		
+		// case 1 : transitions without accepting state => IncompleteOperationError
+		for (List<TransitionEdge> transition : transitionsList) {
+			List<TransitionEdge> result = transition.stream().filter(e -> e.getRight().getAccepting() != true).collect(Collectors.toList());
+			if(!result.isEmpty())
+				resultantList.add(result);
+		}
+		
+		// case 2 : transitions with missing intermediate states => TypestateError
+		for (List<TransitionEdge> transition : transitionsList) {
+			if(transition.size() == 1)
+				break;
+			
+			Iterator<TransitionEdge> itr = transition.iterator();
+			while (itr.hasNext()) {
+				TransitionEdge edge = itr.next();
+				if (edge.getLeft().isInitialState())
+					continue;
+			
+				if(edge.getRight().getAccepting()) {
+					continue;
+				}
+				
+				itr.remove();
+				resultantList.add(transition);
+				break;
+			}
+		}
+		
+		return new ArrayList<List<TransitionEdge>>(resultantList);
+	}
+
 	private GeneratorMethod generateOverriddenMethods() {
 		GeneratorMethod method = new GeneratorMethod();
 		method.setModifier("protected");
@@ -206,19 +315,30 @@ public class TestGenerator {
 	}
 
 	public void generate(GeneratorTestClass templateClass, GeneratorTestMethod templateMethod,
-			List<String> imports, ArrayList<String> methodInvocations, String instanceName) {
+			List<String> imports, ArrayList<String> methodInvocations, String instanceName, boolean isValid) {
 		templateMethod.addStatementToBody("");
 		for (String methodInvocation : methodInvocations) {
 			templateMethod.addStatementToBody(methodInvocation);
 		}
-		templateMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
 		
 		CrySLPredicate predicate = codeGenerator.getToBeEnsuredPred().getKey();
 		String param = predicate.getParameters().get(0).getName();
-		if(param.equals("this"))
-			templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + instanceName + ");");
-		else
-			templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + param + ");");
+		
+		if (isValid) {
+			templateMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
+
+			if(param.equals("this"))
+				templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + instanceName + ");");
+			else
+				templateMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + param + ");");
+		} else {
+			templateMethod.addStatementToBody("Assertions.mustNotBeInAcceptingState(" + instanceName + ");");
+
+			if(param.equals("this"))
+				templateMethod.addStatementToBody("Assertions.notHasEnsuredPredicate(" + instanceName + ");");
+			else
+				templateMethod.addStatementToBody("Assertions.notHasEnsuredPredicate(" + param + ");");
+		}
 		
 		templateMethod.addExceptions(this.codeGenerator.getExceptions());
 		templateClass.addImports(imports);
@@ -267,7 +387,7 @@ public class TestGenerator {
 				//						CodeGenCrySLRule dummyRule = new CodeGenCrySLRule(rule, null, null);
 				//						ArrayList<String> methodInvocations = this.codeGenerator.generateMethodInvocations(dummyRule, templateMethod, currentTransitions, mayUsePreds, imports, lastRule);
 
-				boolean generated = generateMethodInvocations(templateClass, rule, templateMethod, currentTransition, mayUsePreds, imports, false);
+				boolean generated = generateMethodInvocations(templateClass, rule, templateMethod, currentTransition, mayUsePreds, imports, false, true);
 
 				if (!generated) {
 					continue;
@@ -287,18 +407,22 @@ public class TestGenerator {
 		}
 	}
 
-	public GeneratorTestMethod generateMethod() {
+	public GeneratorTestMethod generateMethod(boolean isValid) {
 
 		GeneratorTestMethod templateMethod = new GeneratorTestMethod();
 		templateMethod.setModifier("public");
 		templateMethod.setReturnType("void");
-		templateMethod.setName("validTest" + ++numberOfTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
+		if(isValid) {
+			templateMethod.setName("validTest" + ++numberOfValidTestCases); // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
+		} else {
+			templateMethod.setName("invalidTest" + ++numberOfInvalidTestCases);
+		}
 		return templateMethod;
 	}
 
 	// NOTE2 this method is re-created because TestGenerator doesn't use any template file. Hence there are no addParam, addReturnObj calls & declared variables.
 
-	private boolean generateMethodInvocations(GeneratorTestClass templateClass, CrySLRule rule, GeneratorTestMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule) {
+	private boolean generateMethodInvocations(GeneratorTestClass templateClass, CrySLRule rule, GeneratorTestMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule, boolean isValid) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
 		ArrayList<String> methodInvocations = new ArrayList<String>();
 		List<String> localKillers = new ArrayList<String>();
@@ -356,12 +480,12 @@ public class TestGenerator {
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
 			}
-			generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString());
+			generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
 			return true;
 		} else {	
 			if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
 				this.codeGenerator.getKills().addAll(localKillers);
-				generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString());
+				generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
 				return true;
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
