@@ -604,10 +604,10 @@ public class TestGenerator {
 					e -> de.cognicrypt.utils.Utils.isSubType(e.getValue().getValue().getClassName(), rule.getClassName()) || de.cognicrypt.utils.Utils.isSubType(rule.getClassName(), e.getValue().getValue().getClassName()))
 					.findFirst();
 			if (entry.isPresent()) {
-				final CrySLObject CrySLObject = (CrySLObject) entry.get().getKey().getParameters().get(0);
-				if (!"this".equals(CrySLObject.getVarName())) {
-					if ((de.cognicrypt.utils.Utils.isSubType(CrySLObject.getJavaType(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), CrySLObject.getJavaType()))) {
-						methodParameter = methodParameter.replace(parameter.getKey(), CrySLObject.getVarName());
+				final CrySLObject crySLObject = (CrySLObject) entry.get().getKey().getParameters().get(0);
+				if (!"this".equals(crySLObject.getVarName())) {
+					if (declaredVariables.contains(new SimpleEntry<String, String>(crySLObject.getVarName(), crySLObject.getJavaType())) && (de.cognicrypt.utils.Utils.isSubType(crySLObject.getJavaType(), parameter.getValue()) || de.cognicrypt.utils.Utils.isSubType(parameter.getValue(), crySLObject.getJavaType()))) {
+						methodParameter = methodParameter.replace(parameter.getKey(), crySLObject.getVarName());
 						continue;
 					}
 				}
@@ -617,6 +617,12 @@ public class TestGenerator {
 			if (!name.isEmpty()) {
 				// NOTE2 what if a method has two parameter both of which can be resolved from using CONSTRAINTS, then in that case wouldn't methodParameter overwritten?
 				methodParameter = methodParameter.replace(parameter.getKey(), name);
+				continue;
+			}
+			
+			// NOTE2 parameterCache gets populated in resolveCrySLConstraint. But this code is unreachable during test generation 
+			if (this.codeGenerator.getParameterCache().containsKey(parameter.getKey())) {
+				methodParameter = methodParameter.replace(parameter.getKey(), this.codeGenerator.getParameterCache().get(parameter.getKey()));
 				continue;
 			}
 
