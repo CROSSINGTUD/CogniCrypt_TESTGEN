@@ -27,6 +27,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaModelException;
 
+import crypto.interfaces.ICrySLPredicateParameter;
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLObject;
 import crypto.rules.CrySLPredicate;
@@ -185,8 +186,8 @@ public class TestGenerator {
 
 					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
 
-					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(curRule1.getPredicates().get(0), new SimpleEntry(curRule1, null)));
 					currentTransition = validTransitions.next();
+					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(findEnsuringPredicate(curRule1, currentTransition), new SimpleEntry(curRule1, null)));
 					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
 					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
@@ -209,8 +210,8 @@ public class TestGenerator {
 
 					populateMethod(templateClass, reliablePreds, relatedRules, usedClass, templateMethod);
 					
-//					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(curRule1.getPredicates().get(0), new SimpleEntry(curRule1, null)));
 					currentTransition = invalidTransitions.next();
+//					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(findEnsuringPredicate(curRule1, currentTransition), new SimpleEntry(curRule1, null)));
 					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
 					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
@@ -236,6 +237,46 @@ public class TestGenerator {
 			Activator.getDefault().logError(e, "Failed to clean up.");
 		}
 		debugLogger.info("Finished clean up.");
+	}
+
+	public CrySLPredicate findEnsuringPredicate(CrySLRule curRule1, List<TransitionEdge> currentTransition) {
+		List<CrySLPredicate> ensuringPredicate = new ArrayList<CrySLPredicate>();
+		
+		for (CrySLPredicate pred : curRule1.getPredicates()) {
+			CrySLObject predParam = (CrySLObject) pred.getParameters().get(0);
+			String predParamType = predParam.getJavaType();
+			
+			currentTransition.stream().forEach(transition -> {
+				boolean match1 = transition.getLabel().get(0).getParameters().stream().anyMatch(param -> {
+					return param.getKey().equals(predParam.getName()) && (Utils.isSubType(param.getValue(), predParamType) || Utils.isSubType(predParamType, param.getValue()));
+				});
+				
+				Entry<String, String> returnObj = transition.getLabel().get(0).getRetObject();
+				String returnObjType = returnObj.getValue().replaceAll("[\\[\\]]","");
+				boolean match2 = returnObj.getKey().equals(predParam.getName()) && (Utils.isSubType(returnObjType, predParamType) || Utils.isSubType(predParamType, returnObjType));
+			
+				if (match1 || match2) {
+					ensuringPredicate.add(pred);
+				}
+			});
+		}
+		
+		if(!ensuringPredicate.isEmpty())
+			return ensuringPredicate.get(ensuringPredicate.size() - 1);
+		else
+		{
+			for (CrySLPredicate reqPred : curRule1.getPredicates()) {
+				Optional<ICrySLPredicateParameter> o = reqPred.getParameters().stream()
+						.filter(e -> {
+							return Utils.isSubType(((CrySLObject) e).getJavaType(), curRule1.getClassName());
+						}).findFirst();
+				if (o.isPresent()) {
+					return reqPred;
+
+				}
+			}
+		}
+		return null;
 	}
 
 	private Iterator<List<TransitionEdge>> getValidTransitionsFromStateMachine(StateMachineGraph stateMachine) {
@@ -377,15 +418,13 @@ public class TestGenerator {
 			List<CrySLRule> relatedRules, String usedClass, GeneratorTestMethod templateMethod) {
 		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
 		for (CrySLRule rule : relatedRules) {
-			boolean next = true;
+			this.codeGenerator.clearRuleParameterCache();
 			StateMachineGraph stateMachine = rule.getUsagePattern();
-			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = Optional.empty();
-
-			toBeEnsured = this.codeGenerator.determineEnsurePreds(rule);
+			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = this.codeGenerator.determineEnsurePreds(rule);
 
 			Iterator<List<TransitionEdge>> transitions = this.codeGenerator.getTransitionsFromStateMachine(stateMachine);
 
-			do {
+			while(transitions.hasNext()) {
 				List<TransitionEdge> currentTransition = transitions.next();
 				ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
 				// NOTE2 other imports have to be added later
@@ -403,17 +442,17 @@ public class TestGenerator {
 					continue;
 				}
 
-//				if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
-//						.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
-//					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
-//					int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
-//					this.codeGenerator.getPredicateConnections().remove(indexOf);
-//					this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
-//				}
+				if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
+						.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
+					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
+					int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
+					this.codeGenerator.getPredicateConnections().remove(indexOf);
+					this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
+				}
 
 				reliablePreds.put(rule.getClassName(), rule.getPredicates());
-				next = false;
-			} while(next);
+				break;
+			}
 		}
 	}
 
