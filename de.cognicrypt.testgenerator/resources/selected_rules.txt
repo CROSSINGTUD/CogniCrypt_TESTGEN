@@ -26,3 +26,4 @@ javax.net.ssl.KeyStoreBuilderParameters
 java.security.spec.DSAParameterSpec
 javax.net.ssl.SSLParameters
 javax.net.ssl.SSLContext
+javax.crypto.spec.PBEKeySpec
