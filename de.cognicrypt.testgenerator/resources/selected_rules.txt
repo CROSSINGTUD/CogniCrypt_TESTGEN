@@ -1,6 +1,5 @@
 java.security.MessageDigest
 java.security.SecureRandom
-javax.crypto.SecretKey
 javax.crypto.spec.SecretKeySpec 
 javax.crypto.KeyGenerator
 javax.crypto.SecretKeyFactory
@@ -13,7 +12,6 @@ java.security.spec.DSAGenParameterSpec
 javax.crypto.spec.GCMParameterSpec
 javax.xml.crypto.dsig.spec.HMACParameterSpec
 javax.crypto.spec.IvParameterSpec
-java.security.Key
 java.security.KeyPairGenerator
 javax.net.ssl.KeyStoreBuilderParameters
 javax.crypto.spec.PBEKeySpec
@@ -27,5 +25,4 @@ javax.net.ssl.KeyManagerFactory
 javax.net.ssl.KeyStoreBuilderParameters
 java.security.spec.DSAParameterSpec
 javax.net.ssl.SSLParameters
-javax.net.ssl.SSLEngine
 javax.net.ssl.SSLContext
