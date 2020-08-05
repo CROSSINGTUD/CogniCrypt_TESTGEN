@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -27,6 +25,10 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaModelException;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+
 import crypto.interfaces.ICrySLPredicateParameter;
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLObject;
@@ -42,113 +44,94 @@ import de.cognicrypt.codegenerator.generator.GeneratorClass;
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
 import de.cognicrypt.codegenerator.generator.StateMachineGraphAnalyser;
-import de.cognicrypt.core.Constants;
-import de.cognicrypt.utils.CrySLUtils;
 import de.cognicrypt.testgenerator.Activator;
+import de.cognicrypt.testgenerator.crysl.pool.CrySLEntityPool;
+import de.cognicrypt.testgenerator.utils.Constants;
 import de.cognicrypt.testgenerator.utils.TestUtils;
+import de.cognicrypt.utils.CrySLUtils;
 import de.cognicrypt.utils.DeveloperProject;
 import de.cognicrypt.utils.Utils;
 
 public class TestGenerator {
 
-	static Logger debugLogger = Logger.getLogger(TestGenerator.class.getName());
-	private IJavaProject javaProject;
+	private static final Logger LOGGER = Logger.getLogger(TestGenerator.class.getName());
+	private IJavaProject targetProject;
 	private IResource targetFile;
 	private CrySLBasedCodeGenerator codeGenerator;
-	private DeveloperProject developerProject;
-	private static List<CrySLRule> rules;
-	private static RuleDependencyTree rdt;
-	private static int numberOfValidTestCases;
-	private static int numberOfInvalidTestCases;
+	private DeveloperProject testProject;
+	private List<CrySLRule> rules;
+	private RuleDependencyTree rdt;
+	private int numberOfValidTestCases;
+	private int numberOfInvalidTestCases;
+	private String genFolder = null;
 
-	private static TestGenerator testGenerator = new TestGenerator();
+	private static TestGenerator instance;
 
 	private TestGenerator() {
-
-	}
-	
-	static {
-		debugLogger.info("Reading ruleset.");
-		rules = CrySLUtils.readCrySLRules();
-		debugLogger.info("Finished reading ruleset.");
-		rdt = new RuleDependencyTree(rules);
-	}
-
-	void initialize() throws CoreException {
-		debugLogger.setLevel(Level.INFO);
-		this.javaProject = TestUtils.createJavaProject("UsagePatternTests");
+		LOGGER.setLevel(Level.INFO);
+		try {
+			this.targetProject = TestUtils.createJavaProject(Constants.PROJECT_NAME);
+		} catch (final CoreException e) {
+			Activator.getDefault().logError(e, "Failed to initialize project.");
+		}
+		LOGGER.info("Reading ruleset.");
+		this.rules = CrySLUtils.readCrySLRules();
+		LOGGER.info("Finished reading ruleset.");
+		this.rdt = new RuleDependencyTree(rules);
 	}
 
 	public static TestGenerator getInstance() {
-		return testGenerator;
+		if (TestGenerator.instance == null) {
+			TestGenerator.instance = new TestGenerator();
+		}
+		return TestGenerator.instance;
 	}
 
 	public void generateTests() {
-		try {
-			initialize();
-		} catch (CoreException e) {
-			Activator.getDefault().logError(e, "Failed to initialize project");
-		}
 		
 		File file = Utils.getResourceFromWithin("resources/selected_rules.txt", de.cognicrypt.testgenerator.Activator.PLUGIN_ID);
-		List<String> selectedRules = new ArrayList<String>();
-		try {
-			BufferedReader bufferReader = new BufferedReader(new FileReader(file));
-			try {
-				String line;
-				while ((line = bufferReader.readLine()) != null) {
-					selectedRules.add(line);
-				}
-			} finally {
-				bufferReader.close();
-			}
-		} catch (IOException e) {
-			throw new RuntimeException("Failed to read from selected_rules.txt", e);
-		} 
+		List<String> selectedRules = getSelectedRules(file); 
 		
 		for (CrySLRule curRule : rules) {
 			numberOfValidTestCases = 0;
 			numberOfInvalidTestCases = 0;
-			// FIXME2 only for testing purpose
 //			if(curRule.getClassName().equals("javax.crypto.spec.GCMParameterSpec")) {
 			if(selectedRules.contains(curRule.getClassName())) {
-				debugLogger.info("Creating tests for " + curRule.getClassName());
+				LOGGER.info("Creating tests for " + curRule.getClassName());
 				String testClassName = TestUtils.retrieveOnlyClassName(curRule.getClassName()) + "Test";
 				try {
 					// FIXME2 this method is only retained because CrySLBasedCodeGenerator constructor requires targetFile. Or else templateClass values can be used to generate class
 					
-					this.targetFile = TestUtils.generateJavaClassInJavaProject(this.javaProject, "jca", testClassName);
+					this.targetFile = TestUtils.generateJavaClassInJavaProject(this.targetProject, "jca", testClassName);
 					this.codeGenerator = new CrySLBasedCodeGenerator(targetFile);
-					this.developerProject = this.codeGenerator.getDeveloperProject();
-				} catch (JavaModelException e) {
-					debugLogger.log(Level.SEVERE, "Unable to create " + testClassName + " class.");
+					this.testProject = this.codeGenerator.getDeveloperProject();
+				} catch (final JavaModelException e) {
+					LOGGER.log(Level.SEVERE, "Unable to create " + testClassName + " class.");
 					e.printStackTrace();
 				}
-				String genFolder = "";
 				try {
-					genFolder = this.developerProject.getProjectPath() + Constants.innerFileSeparator + this.developerProject
-						.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator;
-				} catch (CoreException e1) {
-					Activator.getDefault().logError(e1);
+					genFolder = this.testProject.getProjectPath() + Constants.PATH_SEPARATOR + this.testProject
+						.getSourcePath() + Constants.PATH_SEPARATOR + "jca" + Constants.PATH_SEPARATOR;
+				} catch (CoreException e) {
+					Activator.getDefault().logError(e);
 				}
 				
-				Set<GeneratorClass> generatedClasses = new HashSet<GeneratorClass>();
+				Set<GeneratorClass> generatedClasses = Sets.newHashSet();
 				
 				GeneratorTestClass templateClass = new GeneratorTestClass();
 				templateClass.setPackageName("jca");
 				templateClass.setModifier("public");
 				templateClass.setClassName(testClassName);
-				
 				templateClass.addMethod(generateOverriddenMethods());
 				
-				Map<String, List<CrySLPredicate>> reliablePreds = new HashMap<String, List<CrySLPredicate>>();
+				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
 				
 				// NOTE2 In case of tests generation there is no template method which uses only subset of rules. Instead we
 				// consider all rules which has direct path to current rule i.e. they generate the required predicate
 				Iterator<CrySLRule> itr = rules.iterator();
-				List<CrySLRule> relatedRules = new ArrayList<>();
+				List<CrySLRule> relatedRules = Lists.newArrayList();
 				// NOTE2 Every rule has different predicate connections
-				this.codeGenerator.setPredicateConnections(new ArrayList<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>>());
+				this.codeGenerator.setPredicateConnections(Lists.newArrayList());
 				CrySLRule curRule1 = curRule;
 				while (itr.hasNext()) {
 					CrySLRule nextRule = itr.next();
@@ -180,6 +163,7 @@ public class TestGenerator {
 				ArrayList<String> imports = null;
 				Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> mayUsePreds = null;
 				
+				// valid test cases
 				while(validTransitions.hasNext()) {
 					templateMethod = generateMethod(true);
 					templateClass.addMethod(templateMethod);
@@ -188,12 +172,13 @@ public class TestGenerator {
 
 					currentTransition = validTransitions.next();
 					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(findEnsuringPredicate(curRule1, currentTransition), new SimpleEntry(curRule1, null)));
-					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+					imports = Lists.newArrayList(this.codeGenerator.determineImports(currentTransition));
 					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
 					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true, true);
 				}
 				
+				// invalid test cases
 				// case 1 : only generate target rule object correctly => RequiredPredicateError
 				if (relatedRules.size() > 0) {
 					templateMethod = generateMethod(false);
@@ -212,7 +197,7 @@ public class TestGenerator {
 					
 					currentTransition = invalidTransitions.next();
 //					this.codeGenerator.setToBeEnsuredPred(new SimpleEntry(findEnsuringPredicate(curRule1, currentTransition), new SimpleEntry(curRule1, null)));
-					imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+					imports = Lists.newArrayList(this.codeGenerator.determineImports(currentTransition));
 					mayUsePreds = this.codeGenerator.determineMayUsePreds(usedClass);
 
 					generateMethodInvocations(templateClass, curRule1, templateMethod, currentTransition, mayUsePreds, imports, true, false);
@@ -230,17 +215,35 @@ public class TestGenerator {
 			}
 		}
 		addAdditionalFiles("lib");
-		debugLogger.info("Cleaning up generated project.");
+		LOGGER.info("Cleaning up generated project.");
 		try {
-			TestUtils.cleanUpProject(developerProject);
+			TestUtils.cleanUpProject(testProject);
 		} catch (CoreException e) {
 			Activator.getDefault().logError(e, "Failed to clean up.");
 		}
-		debugLogger.info("Finished clean up.");
+		LOGGER.info("Finished clean up.");
 	}
 
-	public CrySLPredicate findEnsuringPredicate(CrySLRule curRule1, List<TransitionEdge> currentTransition) {
-		List<CrySLPredicate> ensuringPredicate = new ArrayList<CrySLPredicate>();
+	private List<String> getSelectedRules(File file) {
+		List<String> selectedRules = Lists.newArrayList();
+		try {
+			BufferedReader bufferReader = new BufferedReader(new FileReader(file));
+			try {
+				String line;
+				while ((line = bufferReader.readLine()) != null) {
+					selectedRules.add(line);
+				}
+			} finally {
+				bufferReader.close();
+			}
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to read from selected_rules.txt", e);
+		}
+		return selectedRules;
+	}
+
+	private CrySLPredicate findEnsuringPredicate(CrySLRule curRule1, List<TransitionEdge> currentTransition) {
+		List<CrySLPredicate> ensuringPredicate = Lists.newArrayList();
 		
 		for (CrySLPredicate pred : curRule1.getPredicates()) {
 			CrySLObject predParam = (CrySLObject) pred.getParameters().get(0);
@@ -316,14 +319,14 @@ public class TestGenerator {
 				}
 			});
 			transitions = invalidTransitionsList.iterator();
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			Activator.getDefault().logError(e);
 		}
 		return transitions;
 	}
 
 	private ArrayList<List<TransitionEdge>> composeInvalidTransitions(ArrayList<List<TransitionEdge>> transitionsList) {
-		LinkedHashSet<List<TransitionEdge>> resultantList = new LinkedHashSet<List<TransitionEdge>>();
+		LinkedHashSet<List<TransitionEdge>> resultantList = Sets.newLinkedHashSet();
 		
 		// case 1 : transitions without accepting state => IncompleteOperationError
 		for (List<TransitionEdge> transition : transitionsList) {
@@ -353,7 +356,7 @@ public class TestGenerator {
 			}
 		}
 		
-		return new ArrayList<List<TransitionEdge>>(resultantList);
+		return Lists.newArrayList(resultantList);
 	}
 
 	private GeneratorMethod generateOverriddenMethods() {
@@ -365,7 +368,7 @@ public class TestGenerator {
 		return method;
 	}
 
-	public void generate(GeneratorTestClass templateClass, GeneratorTestMethod templateMethod,
+	private void generateAssertions(GeneratorTestClass templateClass, GeneratorTestMethod templateMethod,
 			List<String> imports, ArrayList<String> methodInvocations, String instanceName, boolean isValid) {
 		templateMethod.addStatementToBody("");
 		for (String methodInvocation : methodInvocations) {
@@ -395,7 +398,7 @@ public class TestGenerator {
 		templateClass.addImports(imports);
 	}
 
-	public void printPredicateConnections(CrySLRule rule) {
+	private void printPredicateConnections(CrySLRule rule) {
 		System.out.print("PC : " + TestUtils.retrieveOnlyClassName(rule.getClassName()));
 		List<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> connections = this.codeGenerator.getPredicateConnections();
 		for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> c : connections) {
@@ -406,7 +409,7 @@ public class TestGenerator {
 		System.out.println("\n");
 	}
 
-	public boolean isAdded(CrySLRule nextRule) {
+	private boolean isAdded(CrySLRule nextRule) {
 		return this.codeGenerator.getPredicateConnections().stream().anyMatch(entry -> {
 			return nextRule.getPredicates().stream().anyMatch(predicate -> {
 				return predicate.getPredName().equals(entry.getKey().getPredName());
@@ -414,7 +417,7 @@ public class TestGenerator {
 		});
 	}
 	
-	public void populateMethod(GeneratorTestClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
+	private void populateMethod(GeneratorTestClass templateClass, Map<String, List<CrySLPredicate>> reliablePreds,
 			List<CrySLRule> relatedRules, String usedClass, GeneratorTestMethod templateMethod) {
 		// NOTE for every rule we consider the list of related rules. For eg. SecureRandom (1st gen) -> PBEKeySpec -> SecretKeyFactory -> SecretKey (nth gen)
 		for (CrySLRule rule : relatedRules) {
@@ -426,7 +429,7 @@ public class TestGenerator {
 
 			while(transitions.hasNext()) {
 				List<TransitionEdge> currentTransition = transitions.next();
-				ArrayList<String> imports = new ArrayList<String>(this.codeGenerator.determineImports(currentTransition));
+				ArrayList<String> imports = Lists.newArrayList(this.codeGenerator.determineImports(currentTransition));
 				// NOTE2 other imports have to be added later
 				//						templateClass.addImports(imports);
 
@@ -456,7 +459,7 @@ public class TestGenerator {
 		}
 	}
 
-	public GeneratorTestMethod generateMethod(boolean isValid) {
+	private GeneratorTestMethod generateMethod(boolean isValid) {
 
 		GeneratorTestMethod templateMethod = new GeneratorTestMethod();
 		templateMethod.setModifier("public");
@@ -473,11 +476,11 @@ public class TestGenerator {
 
 	private boolean generateMethodInvocations(GeneratorTestClass templateClass, CrySLRule rule, GeneratorTestMethod useMethod, List<TransitionEdge> currentTransitions, Map<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePreds, List<String> imports, boolean lastRule, boolean isValid) {
 		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
-		ArrayList<String> methodInvocations = new ArrayList<String>();
-		List<String> localKillers = new ArrayList<String>();
+		ArrayList<String> methodInvocations = Lists.newArrayList();
+		List<String> localKillers = Lists.newArrayList();
 		boolean ensures = false;
 
-		Set<Entry<String, String>> useMethodVariables = new HashSet<Entry<String, String>>();
+		Set<Entry<String, String>> useMethodVariables = Sets.newHashSet();
 		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
 
 		StringBuilder instanceName = new StringBuilder();
@@ -498,7 +501,7 @@ public class TestGenerator {
 
 			try {
 				this.codeGenerator.determineThrownExceptions(method.getMethodName().substring(0, method.getMethodName().lastIndexOf(".")), methodName, methodParameter, imports);
-			} catch (NoSuchMethodException | SecurityException | ClassNotFoundException e) {
+			} catch (final NoSuchMethodException | SecurityException | ClassNotFoundException e) {
 				Activator.getDefault().logError(e);
 			}
 
@@ -529,12 +532,12 @@ public class TestGenerator {
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
 			}
-			generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
+			generateAssertions(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
 			return true;
 		} else {	
 			if (this.codeGenerator.getToBeEnsuredPred() == null || ensures) {
 				this.codeGenerator.getKills().addAll(localKillers);
-				generate(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
+				generateAssertions(templateClass, useMethod, imports, methodInvocations, instanceName.toString(), isValid);
 				return true;
 			} else {
 				this.codeGenerator.setToBeEnsuredPred(pre);
@@ -626,7 +629,7 @@ public class TestGenerator {
 		
 		for (Entry<String, String> parameter : parametersOfCall) {
 			
-			List<Entry<String, String>> tmpVariables = new ArrayList<>();
+			List<Entry<String, String>> tmpVariables = Lists.newArrayList();
 			if (declaredVariables.size() > 0) {
 				tmpVariables.addAll(declaredVariables);
 			}
@@ -682,7 +685,7 @@ public class TestGenerator {
 		return new SimpleEntry<>(currentInvokedMethod, parametersOfUseMethod);
 	}
 	
-	public boolean addAdditionalFiles(final String source) {
+	private boolean addAdditionalFiles(final String source) {
 		if (source.isEmpty()) {
 			return true;
 		}
@@ -694,7 +697,7 @@ public class TestGenerator {
 
 			final File[] members = pathToAddFiles.listFiles();
 			if (members == null) {
-				Activator.getDefault().logError(Constants.ERROR_MESSAGE_NO_ADDITIONAL_RES_DIRECTORY);
+				Activator.getDefault().logError("No directory for additional resources found.");
 			}
 			for (int i = 0; i < members.length; i++) {
 				final File addFile = members[i];
@@ -702,7 +705,7 @@ public class TestGenerator {
 					return false;
 				}
 			}
-		} catch (IOException | CoreException e) {
+		} catch (final IOException | CoreException e) {
 			Activator.getDefault().logError(e, "An error occured during library addition.");
 			return false;
 		}

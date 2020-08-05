@@ -1,10 +1,11 @@
 package de.cognicrypt.testgenerator.generator;
 
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Map.Entry;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+
+import com.google.common.collect.Lists;
 
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.testgenerator.utils.TestUtils;
@@ -66,7 +67,7 @@ public class GeneratorTestMethod extends GeneratorMethod {
 		method.append(")");
 		if (getExceptions().size() > 0) {
 			method.append(" throws ");
-			List<String> exAsList = new ArrayList<String>(getExceptions());
+			List<String> exAsList = Lists.newArrayList(getExceptions());
 			for (int i = 0; i < getExceptions().size(); i++) {
 				method.append(exAsList.get(i));
 				if (i < getExceptions().size() - 1) {

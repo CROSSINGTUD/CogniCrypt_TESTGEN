@@ -13,6 +13,11 @@ import crypto.rules.StateMachineGraph;
 
 public class TestGenCrySLRule extends CrySLRule {
 
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 7858343772236591849L;
+
 	public TestGenCrySLRule(String _className, List<Entry<String, String>> defObjects,
 			List<CrySLForbiddenMethod> _forbiddenMethods, StateMachineGraph _usagePattern,
 			List<ISLConstraint> _constraints, List<CrySLPredicate> _predicates) {

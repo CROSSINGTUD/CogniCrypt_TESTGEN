@@ -1,7 +1,6 @@
 package de.cognicrypt.testgenerator.utils;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -28,6 +27,7 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ide.IDE;
 
 import com.google.common.base.Defaults;
+import com.google.common.collect.Lists;
 
 import de.cognicrypt.testgenerator.Activator;
 import de.cognicrypt.testgenerator.generator.TestGenerator;
@@ -37,7 +37,7 @@ import de.cognicrypt.utils.Utils;
 
 public class TestUtils {
 	
-	static Logger debugLogger = Logger.getLogger(TestGenerator.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(TestGenerator.class.getName());
 
 	/**
 	 * This method creates a empty JavaProject in the current workspace
@@ -48,7 +48,7 @@ public class TestUtils {
 	 */
 	public static IJavaProject createJavaProject(final String projectName) throws CoreException {
 
-		debugLogger.info("Creating " + projectName + " project.");
+		LOGGER.info("Creating " + projectName + " project.");
 		
 		final IWorkspaceRoot workSpaceRoot = ResourcesPlugin.getWorkspace().getRoot();
 		deleteProject(workSpaceRoot.getProject(projectName));
@@ -67,7 +67,7 @@ public class TestUtils {
 		binFolder.create(false, true, null);
 		javaProject.setOutputLocation(binFolder.getFullPath(), null);
 
-		final List<IClasspathEntry> entries = new ArrayList<IClasspathEntry>();
+		final List<IClasspathEntry> entries = Lists.newArrayList();
 		final IVMInstall vmInstall = JavaRuntime.getDefaultVMInstall();
 		final LibraryLocation[] locations = JavaRuntime.getLibraryLocations(vmInstall);
 		for (final LibraryLocation element : locations) {
@@ -86,7 +86,7 @@ public class TestUtils {
 		newEntries[oldEntries.length] = JavaCore.newSourceEntry(packageRoot.getPath());
 		javaProject.setRawClasspath(newEntries, null);
 		
-		debugLogger.info("Finished creating " + projectName + " project.");
+		LOGGER.info("Finished creating " + projectName + " project.");
 
 		return javaProject;
 	}
@@ -100,9 +100,9 @@ public class TestUtils {
 	 */
 	public static void deleteProject(final IProject project) throws CoreException {
 		if(project.exists()) {
-			debugLogger.info("Deleting existing project.");
+			LOGGER.info("Deleting existing project.");
 			project.delete(true, true, null);
-			debugLogger.info("Finished deletion.");
+			LOGGER.info("Finished deletion.");
 		}
 	}
 	
@@ -141,7 +141,7 @@ public class TestUtils {
 			final FormatAllAction faa = new FormatAllAction(editor.getSite());
 			faa.runOnMultiple(units);
 		} else {
-			debugLogger.info("No files found.");
+			LOGGER.info("No files found.");
 		}
 	}
 	

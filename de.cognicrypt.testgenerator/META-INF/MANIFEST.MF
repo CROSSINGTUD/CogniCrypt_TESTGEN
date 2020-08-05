@@ -18,4 +18,3 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Automatic-Module-Name: de.cognicrypt.testgenerator
 Bundle-ActivationPolicy: lazy
 Bundle-Vendor: Paderborn University
-Import-Package: com.google.common.base
