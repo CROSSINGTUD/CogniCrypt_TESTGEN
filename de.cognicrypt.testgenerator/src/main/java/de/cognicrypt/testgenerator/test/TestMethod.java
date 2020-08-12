@@ -1,4 +1,4 @@
-package de.cognicrypt.testgenerator.generator;
+package de.cognicrypt.testgenerator.test;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.List;
@@ -8,10 +8,16 @@ import java.util.Set;
 import com.google.common.collect.Lists;
 
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
-import de.cognicrypt.testgenerator.utils.TestUtils;
-import de.cognicrypt.utils.Utils;
+import de.cognicrypt.testgenerator.utils.Utils;
 
-public class GeneratorTestMethod extends GeneratorMethod {
+public class TestMethod extends GeneratorMethod {
+	
+	private boolean isValid;
+	
+	public TestMethod(String name, boolean isValid) {
+		this.name = name;
+		this.isValid = isValid;
+	}
 	
 	public void addVariablesToBody(Set<Entry<String, String>> variables) {
 		for (Entry<String, String> var : variables) {
@@ -25,7 +31,7 @@ public class GeneratorTestMethod extends GeneratorMethod {
 				if(type.matches("\\w+\\[\\]")) {
 					addStatementToBody(type + " " + name + " = null;");
 				} else {
-					addStatementToBody(type + " " + name + " = " + TestUtils.getDefaultValue(type) + ";");
+					addStatementToBody(type + " " + name + " = " + Utils.getDefaultValue(type) + ";");
 				}
 			}
 		}
@@ -69,7 +75,7 @@ public class GeneratorTestMethod extends GeneratorMethod {
 			method.append(" throws ");
 			List<String> exAsList = Lists.newArrayList(getExceptions());
 			for (int i = 0; i < getExceptions().size(); i++) {
-				method.append(exAsList.get(i));
+				method.append(Utils.retrieveOnlyClassName(exAsList.get(i)));
 				if (i < getExceptions().size() - 1) {
 					method.append(", ");
 				}
@@ -84,5 +90,13 @@ public class GeneratorTestMethod extends GeneratorMethod {
 		} else {
 			return method.toString();
 		}
+	}
+
+	public boolean isValid() {
+		return isValid;
+	}
+
+	public void setValid(boolean isValid) {
+		this.isValid = isValid;
 	}
 }

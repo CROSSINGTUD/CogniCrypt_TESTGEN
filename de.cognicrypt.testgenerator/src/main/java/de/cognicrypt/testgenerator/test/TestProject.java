@@ -1,6 +1,10 @@
-package de.cognicrypt.testgenerator.utils;
+package de.cognicrypt.testgenerator.test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -26,19 +30,98 @@ import org.eclipse.jdt.ui.actions.FormatAllAction;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ide.IDE;
 
-import com.google.common.base.Defaults;
 import com.google.common.collect.Lists;
 
+import de.cognicrypt.core.Constants;
 import de.cognicrypt.testgenerator.Activator;
-import de.cognicrypt.testgenerator.generator.TestGenerator;
+import de.cognicrypt.testgenerator.utils.Utils;
 import de.cognicrypt.utils.DeveloperProject;
 import de.cognicrypt.utils.UIUtils;
-import de.cognicrypt.utils.Utils;
 
-public class TestUtils {
+public class TestProject {
 	
-	private static final Logger LOGGER = Logger.getLogger(TestGenerator.class.getName());
+	private static final Logger LOGGER = Logger.getLogger(TestProject.class.getName());
 
+	private IJavaProject jProject;
+	private DeveloperProject dProject;
+	public TestProject(String name) {
+		try {
+			this.jProject = createJavaProject(name);
+		} catch (CoreException e) {
+			Activator.getDefault().logError(e, "Failed to create test project.");
+		}
+		this.dProject = new DeveloperProject(jProject.getProject());
+		addAdditionalFiles("lib");
+	}
+	
+	private boolean addAdditionalFiles(final String source) {
+		if (source.isEmpty()) {
+			return true;
+		}
+		File pathToAddFiles = Utils.getResourceFromWithin(source);
+		if (pathToAddFiles == null || !pathToAddFiles.exists()) {
+			return true;
+		}
+
+		final File[] members = pathToAddFiles.listFiles();
+		if (members == null) {
+			Activator.getDefault().logError("No directory for additional resources found.");
+		}
+		for (int i = 0; i < members.length; i++) {
+			final File addFile = members[i];
+			try {
+				if (!addAddtionalFile(addFile)) {
+					return false;
+				}
+			} catch (CoreException | IOException e) {
+				e.printStackTrace();
+			}
+		}
+		return true;
+	}
+
+	private boolean addAddtionalFile(File fileToBeAdded) throws CoreException, IOException {
+		final IFolder libFolder = this.dProject.getFolder(Constants.pathsForLibrariesInDevProject);
+		if (!libFolder.exists()) {
+			libFolder.create(true, true, null);
+		}
+
+		final Path memberPath = fileToBeAdded.toPath();
+		Files.copy(memberPath, new File(this.dProject.getProjectPath() + Constants.outerFileSeparator + Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + memberPath.getFileName()).toPath(),
+				StandardCopyOption.REPLACE_EXISTING);
+		final String filePath = fileToBeAdded.toString();
+		final String cutPath = filePath.substring(filePath.lastIndexOf(Constants.outerFileSeparator));
+		if (Constants.JAR.equals(cutPath.substring(cutPath.indexOf(".")))) {
+			if (!this.dProject.addJar(Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + fileToBeAdded.getName())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	public IJavaProject getProject() {
+		return jProject;
+	}
+	
+	/**
+	 * This method creates a package with a java class into a JavaProject <<<<<<< HEAD
+	 * 
+	 * @param packageName package in which the new Java class will be generated
+	 * @param className name of the new Java class
+	 * @throws JavaModelException
+	 */
+	public IResource generateTestClass(final String className) throws JavaModelException {
+
+		String testClassName = className + "Test";
+		final IPackageFragment pack = this.jProject.getPackageFragmentRoot(this.jProject.getProject().getFolder("src")).createPackageFragment("jca", false, null);
+		final String source = "public class " + testClassName + " {\n\n}\n";
+		final StringBuffer buffer = new StringBuffer();
+		buffer.append("package " + pack.getElementName() + ";\r\n\r\n");
+		buffer.append(source);
+		ICompilationUnit unit = pack.createCompilationUnit(testClassName + ".java", buffer.toString(), false, null);
+		return unit.getUnderlyingResource();
+	}
+	
 	/**
 	 * This method creates a empty JavaProject in the current workspace
 	 * 
@@ -46,7 +129,7 @@ public class TestUtils {
 	 * @return new created JavaProject
 	 * @throws CoreException
 	 */
-	public static IJavaProject createJavaProject(final String projectName) throws CoreException {
+	private IJavaProject createJavaProject(final String projectName) throws CoreException {
 
 		LOGGER.info("Creating " + projectName + " project.");
 		
@@ -98,7 +181,7 @@ public class TestUtils {
 	 * @throws CoreException
 	 * @throws InterruptedException
 	 */
-	public static void deleteProject(final IProject project) throws CoreException {
+	private void deleteProject(final IProject project) throws CoreException {
 		if(project.exists()) {
 			LOGGER.info("Deleting existing project.");
 			project.delete(true, true, null);
@@ -106,33 +189,9 @@ public class TestUtils {
 		}
 	}
 	
-	/**
-	 * This method creates a package with a java class into a JavaProject <<<<<<< HEAD
-	 * 
-	 * @param project JavaProject in which the new Java class will be generated
-	 * @param packageName package in which the new Java class will be generated
-	 * @param className name of the new Java class
-	 * @throws JavaModelException
-	 */
-	public static IResource generateJavaClassInJavaProject(final IJavaProject project, final String packageName, final String className) throws JavaModelException {
-
-		final IPackageFragment pack = project.getPackageFragmentRoot(project.getProject().getFolder("src")).createPackageFragment(packageName, false, null);
-		final String source = "public class " + className + " {\n\n}\n";
-		final StringBuffer buffer = new StringBuffer();
-		buffer.append("package " + pack.getElementName() + ";\r\n\r\n");
-		buffer.append(source);
-		ICompilationUnit unit = pack.createCompilationUnit(className + ".java", buffer.toString(), false, null);
-		return unit.getUnderlyingResource();
-	}
-	
-	public static String retrieveOnlyClassName(String className) {
-		String[] values = className.split("\\.");
-		return values[values.length-1];
-	}
-	
-	public static void cleanUpProject(DeveloperProject project) throws CoreException {
-		project.refresh();
-		final ICompilationUnit[] units = project.getPackagesOfProject("jca").getCompilationUnits();
+	public void cleanUpProject() throws CoreException {
+		dProject.refresh();
+		final ICompilationUnit[] units = dProject.getPackagesOfProject("jca").getCompilationUnits();
 
 		if (units.length > 0 && units[0].getResource().getType() == IResource.FILE) {
 			IFile genClass = (IFile) units[0].getResource();
@@ -144,30 +203,17 @@ public class TestUtils {
 			LOGGER.info("No files found.");
 		}
 	}
-	
-	public static String getDefaultValue(String type) {
 
-		switch(type) {
-			case "byte":
-				return Defaults.defaultValue(Byte.TYPE).toString();
-			case "short":
-				return Defaults.defaultValue(Short.TYPE).toString();
-			case "int":
-				return Defaults.defaultValue(Integer.TYPE).toString();
-			case "long":
-				return Defaults.defaultValue(Long.TYPE).toString();
-			case "float":
-				return Defaults.defaultValue(Float.TYPE).toString();
-			case "double":
-				return Defaults.defaultValue(Double.TYPE).toString();
-			case "boolean":
-				return Defaults.defaultValue(Boolean.TYPE).toString();
-			default:
-				throw new IllegalArgumentException("Type " + type + " not supported");
-		}
+	public String getProjectPath() {
+		return this.dProject.getProjectPath();
 	}
-	
-	public static File getResourceFromWithin(final String inputPath) {
-		return Utils.getResourceFromWithin(inputPath, Activator.PLUGIN_ID);
+
+	public String getSourcePath() {
+		try {
+			return this.dProject.getSourcePath();
+		} catch (CoreException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 }
