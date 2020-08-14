@@ -9,6 +9,7 @@ import com.google.common.collect.Sets;
 import de.cognicrypt.codegenerator.generator.GeneratorClass;
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.testgenerator.utils.TestConstants;
+import de.cognicrypt.testgenerator.utils.Utils;
 
 public class TestClass extends GeneratorClass {
 	
@@ -72,6 +73,13 @@ public class TestClass extends GeneratorClass {
 	}
 	
 	public void addImports(Set<String> imports) {
-		this.imports.addAll(imports);
+		for (String imp : imports) {
+			addImport(imp);
+		}
+	}
+	
+	public void addImport(String imp) {
+		imp = Utils.preprocessImports(imp);
+		this.imports.add(imp);
 	}
 }

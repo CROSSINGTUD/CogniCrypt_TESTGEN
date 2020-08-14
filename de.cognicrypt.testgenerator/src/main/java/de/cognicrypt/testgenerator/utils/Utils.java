@@ -4,13 +4,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import com.google.common.base.Defaults;
@@ -28,6 +26,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 	private static final Logger LOGGER = Logger.getLogger(Utils.class.getName());
 	
 	public static String retrieveOnlyClassName(String className) {
+		className = className.replace('$', '.');
 		String[] values = className.split("\\.");
 		return values[values.length-1];
 	}
@@ -59,7 +58,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 	}
 	
 	public static Type getType(CrySLRule rule, String var) {
-		ArrayList<TransitionEdge> transitions = new ArrayList<TransitionEdge>(
+		List<TransitionEdge> transitions = Lists.newArrayList(
 				rule.getUsagePattern().getAllTransitions());
 		for (TransitionEdge transition : transitions) {
 			List<CrySLMethod> methods = transition.getLabel();
@@ -185,5 +184,11 @@ public class Utils extends de.cognicrypt.utils.Utils {
 			}	
 		}
 		return imports;
+	}
+	
+	public static String preprocessImports(String imp) {
+		String value = imp.replace('$', '.');
+		value = value.replaceAll("[\\[\\]]","");
+		return value;
 	}
 }
