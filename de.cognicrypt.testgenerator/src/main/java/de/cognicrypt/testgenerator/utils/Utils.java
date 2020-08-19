@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -69,7 +70,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 						Type retType = null;
 						try {
 							retType = Scene.v().getType(parameter.getValue());
-						} catch (java.lang.RuntimeException e) {
+						} catch (RuntimeException e) {
 							retType = Scene.v().getTypeUnsafe(parameter.getValue());
 						}
 						return retType;
@@ -81,7 +82,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 					Type retType = null;
 					try {
 						retType = Scene.v().getType(ret.getValue());
-					} catch (java.lang.RuntimeException e) {
+					} catch (RuntimeException e) {
 						retType = Scene.v().getTypeUnsafe(ret.getValue());
 					}
 
@@ -154,7 +155,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 					if(parameter.getValue().contains("[")) {
 						String typeName = parameter.getValue().replaceAll("[\\[\\]]","");
 						Class<?> className = Class.forName(typeName);
-						methodParameter[i] = java.lang.reflect.Array.newInstance(className, 0).getClass();
+						methodParameter[i] = Array.newInstance(className, 0).getClass();
 					}
 					else {
 						methodParameter[i] = Class.forName(parameter.getValue());
@@ -177,7 +178,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 			if(retObjectType.contains("["))
 				retObjectType = retObjectType.substring(0, retObjectType.indexOf('['));
 			try {
-				java.lang.Class.forName(retObjectType);
+				Class.forName(retObjectType);
 				imports.add(retObjectType);
 			} catch(ClassNotFoundException e) {
 				continue;
