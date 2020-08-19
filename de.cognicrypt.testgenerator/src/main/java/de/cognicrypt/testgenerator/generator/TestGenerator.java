@@ -45,7 +45,6 @@ import de.cognicrypt.codegenerator.generator.GeneratorMethod;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
 import de.cognicrypt.codegenerator.generator.StateMachineGraphAnalyser;
 import de.cognicrypt.testgenerator.Activator;
-import de.cognicrypt.testgenerator.crysl.pool.CrySLEntityPool;
 import de.cognicrypt.testgenerator.utils.Constants;
 import de.cognicrypt.testgenerator.utils.TestUtils;
 import de.cognicrypt.utils.CrySLUtils;
