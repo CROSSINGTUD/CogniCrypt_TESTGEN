@@ -45,7 +45,7 @@ import de.cognicrypt.testgenerator.Activator;
 import de.cognicrypt.testgenerator.test.TestClass;
 import de.cognicrypt.testgenerator.test.TestMethod;
 import de.cognicrypt.testgenerator.test.TestProject;
-import de.cognicrypt.testgenerator.utils.TestConstants;
+import de.cognicrypt.testgenerator.utils.Constants;
 import de.cognicrypt.testgenerator.utils.Utils;
 import de.cognicrypt.utils.CrySLUtils;
 
@@ -67,8 +67,8 @@ public class TestGenerator {
 
 	private TestGenerator() {
 		LOGGER.setLevel(Level.INFO);
-		this.testProject = new TestProject(TestConstants.PROJECT_NAME);
-		this.genFolder = this.testProject.getProjectPath() + TestConstants.innerFileSeparator + this.testProject.getSourcePath() + TestConstants.innerFileSeparator + "jca" + TestConstants.innerFileSeparator;
+		this.testProject = new TestProject(Constants.PROJECT_NAME);
+		this.genFolder = this.testProject.getProjectPath() + Constants.innerFileSeparator + this.testProject.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator;
 		LOGGER.info("Reading ruleset.");
 		this.rules = CrySLUtils.readCrySLRules();
 		LOGGER.info("Finished reading ruleset.");

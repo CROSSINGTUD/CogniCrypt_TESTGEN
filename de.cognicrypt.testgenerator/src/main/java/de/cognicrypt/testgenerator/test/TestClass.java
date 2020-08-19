@@ -8,7 +8,7 @@ import com.google.common.collect.Sets;
 
 import de.cognicrypt.codegenerator.generator.GeneratorClass;
 import de.cognicrypt.codegenerator.generator.GeneratorMethod;
-import de.cognicrypt.testgenerator.utils.TestConstants;
+import de.cognicrypt.testgenerator.utils.Constants;
 import de.cognicrypt.testgenerator.utils.Utils;
 
 public class TestClass extends GeneratorClass {
@@ -18,7 +18,7 @@ public class TestClass extends GeneratorClass {
 	
 	public TestClass(String name) {
 		this.className = name;
-		this.imports = Sets.newHashSet(TestConstants.TEST_IMPORTS);
+		this.imports = Sets.newHashSet(Constants.TEST_IMPORTS);
 		this.methods = overriddenMethods();
 	}
 
