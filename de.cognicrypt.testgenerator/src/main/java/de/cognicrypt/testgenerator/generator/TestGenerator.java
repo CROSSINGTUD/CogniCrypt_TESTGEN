@@ -4,6 +4,8 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,6 +32,7 @@ import com.google.common.collect.Sets;
 import crypto.interfaces.ICrySLPredicateParameter;
 import crypto.interfaces.ISLConstraint;
 import crypto.rules.CrySLComparisonConstraint;
+import crypto.rules.CrySLCondPredicate;
 import crypto.rules.CrySLConstraint;
 import crypto.rules.CrySLConstraint.LogOps;
 import crypto.rules.CrySLMethod;
@@ -38,6 +41,7 @@ import crypto.rules.CrySLPredicate;
 import crypto.rules.CrySLRule;
 import crypto.rules.CrySLValueConstraint;
 import crypto.rules.StateMachineGraph;
+import crypto.rules.StateNode;
 import crypto.rules.TransitionEdge;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
 import de.cognicrypt.codegenerator.generator.StateMachineGraphAnalyser;
@@ -59,20 +63,21 @@ public class TestGenerator {
 	private String genFolder;
 	
 	private List<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> predicateConnections = Lists.newArrayList();
-	CrySLPredicate toBeEnsuredPred = null;
-	private static HashMap<String, String> parameterCache = new HashMap<String, String>();
-	private static HashMap<String, String> ruleParameterCache = new HashMap<String, String>();
+	private Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> toBeEnsuredPred = null;
+	private static HashMap<String, String> parameterCache = Maps.newHashMap();
+	private static HashMap<String, String> ruleParameterCache = Maps.newHashMap();
+	private List<String> kills = Lists.newArrayList();
 	
 	private static TestGenerator instance;
 
 	private TestGenerator() {
 		LOGGER.setLevel(Level.INFO);
-		this.testProject = new TestProject(Constants.PROJECT_NAME);
-		this.genFolder = this.testProject.getProjectPath() + Constants.innerFileSeparator + this.testProject.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator;
+		testProject = new TestProject(Constants.PROJECT_NAME);
+		genFolder = testProject.getProjectPath() + Constants.innerFileSeparator + testProject.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator;
 		LOGGER.info("Reading ruleset.");
-		this.rules = CrySLUtils.readCrySLRules();
+		rules = CrySLUtils.readCrySLRules();
 		LOGGER.info("Finished reading ruleset.");
-		this.rdt = new RuleDependencyTree(rules);
+		rdt = new RuleDependencyTree(rules);
 	}
 
 	public static TestGenerator getInstance() {
@@ -118,8 +123,8 @@ public class TestGenerator {
 		for (int i = 0; i < rules.size(); i++) {
 			CrySLRule cRule = rules.get(i);
 			for(int j = 0; j < rules.size(); j++) {
-				if(j == i)
-					continue;
+//				if(j == i)
+//					continue;
 				
 				CrySLRule nRule = rules.get(j);
 				if (rdt.hasDirectPath(cRule, nRule)) {
@@ -141,7 +146,13 @@ public class TestGenerator {
 			for (CrySLPredicate reqPred : nextRule.getRequiredPredicates()) {
 				if (reqPred.equals(ensPred) && Utils.isSubType(((CrySLObject) reqPred.getParameters().get(0)).getJavaType(), predType)) {
 					Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> matchedPred = predicateConnections.stream()
-						.filter(e -> e.getKey().equals(ensPred)).findFirst();
+					.filter(e -> {
+						if(Utils.isSubType(e.getValue().getValue().getClassName(), nextRule.getClassName()) || Utils.isSubType(nextRule.getClassName(), e.getValue().getValue().getClassName())) {
+							if(e.getKey().equals(ensPred))
+								return true;
+						}
+						return false;
+					}).findFirst();
 					if (isAdded && matchedPred.isPresent()) {
 						int newParNumber = getParameterNumber(curRule, (CrySLObject) ensPred.getParameters().get(0));
 						Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> entry = matchedPred.get();
@@ -189,7 +200,7 @@ public class TestGenerator {
 	private void cleanProject() {
 		LOGGER.info("Cleaning up generated project.");
 		try {
-			this.testProject.cleanUpProject();
+			testProject.cleanUpProject();
 		} catch (CoreException e) {
 			Activator.getDefault().logError(e, "Failed to clean up.");
 		}
@@ -202,26 +213,27 @@ public class TestGenerator {
 			List<TransitionEdge> currentTransition = invalidTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(false);
 			
-			generateValidTest(curRule, testClass, currentTransition, testMethod);
+			generateValidTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
 
 	private void generateValidTests(CrySLRule curRule, TestClass testClass) {
+//		Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured = determineEnsurePreds(curRule);
 		Iterator<List<TransitionEdge>> validTransitions = getValidTransitionsFromStateMachine(curRule.getUsagePattern());
 		while(validTransitions.hasNext()) {
 			List<TransitionEdge> currentTransition = validTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(true);
 
-			generateValidTest(curRule, testClass, currentTransition, testMethod);
+			generateValidTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
 
 	private void generateValidTest(CrySLRule curRule, TestClass testClass, List<TransitionEdge> currentTransition,
-			TestMethod testMethod) {
+			TestMethod testMethod, boolean isExplicit) {
 		Set<String> imports = Utils.determineImports(currentTransition);
 		testClass.addImports(imports);
 		
-		populateMethod(curRule, currentTransition, testMethod, testClass);
+		populateMethod(curRule, currentTransition, testMethod, testClass, isExplicit);
 	}
 
 	private CrySLPredicate findEnsuringPredicate(CrySLRule curRule, List<TransitionEdge> currentTransition) {
@@ -265,28 +277,39 @@ public class TestGenerator {
 	}
 
 	private Iterator<List<TransitionEdge>> getValidTransitionsFromStateMachine(StateMachineGraph stateMachine) {
-		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
 		try {
-			List<List<TransitionEdge>> validTransitionsList = stateMachineGraphAnalyser.getTransitions();
-			validTransitionsList.sort(new Comparator<List<TransitionEdge>>() {
-
-				@Override
-				public int compare(List<TransitionEdge> element1, List<TransitionEdge> element2) {
-					return Integer.compare(element1.size(), element2.size());
-				}
-			});
-			return validTransitionsList.iterator();
+			return getTransitionsFromStateMachine(stateMachine);
 		} catch (Exception e) {
 			Activator.getDefault().logError(e);
 		}
 		return null;
 	}
+
+	private Iterator<List<TransitionEdge>> getTransitionsFromStateMachine(StateMachineGraph stateMachine) throws Exception {
+		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
+		List<List<TransitionEdge>> validTransitionsList = stateMachineGraphAnalyser.getTransitions();
+		validTransitionsList.sort(new Comparator<List<TransitionEdge>>() {
+
+			@Override
+			public int compare(List<TransitionEdge> element1, List<TransitionEdge> element2) {
+				return Integer.compare(element1.size(), element2.size());
+			}
+		});
+		return validTransitionsList.iterator();
+	}
 	
 	private List<TransitionEdge> getValidTransitionFromStateMachine(StateMachineGraph stateMachine) {
-		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
 		try {
-			List<List<TransitionEdge>> validTransitionsList = stateMachineGraphAnalyser.getTransitions();
-			return validTransitionsList.get(0);
+			Iterator<List<TransitionEdge>> validTransitions = getTransitionsFromStateMachine(stateMachine);
+			while (validTransitions.hasNext()) {
+				List<TransitionEdge> currentTransitions = validTransitions.next();
+				for (TransitionEdge transition : currentTransitions) {
+					Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(toBeEnsuredPred, transition.getLabel(), false);
+					if(entry.getValue()) {
+						return currentTransitions;
+					}
+				}
+			}
 		} catch (Exception e) {
 			Activator.getDefault().logError(e);
 		}
@@ -294,9 +317,8 @@ public class TestGenerator {
 	}
 
 	private Iterator<List<TransitionEdge>> getInvalidTransitionsFromStateMachine(StateMachineGraph stateMachine) {
-		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
 		try {
-			List<List<TransitionEdge>> invalidTransitionsList = composeInvalidTransitions(stateMachineGraphAnalyser.getTransitions());
+			List<List<TransitionEdge>> invalidTransitionsList = composeInvalidTransitions(stateMachine);
 			invalidTransitionsList.sort(new Comparator<List<TransitionEdge>>() {
 
 				@Override
@@ -311,7 +333,9 @@ public class TestGenerator {
 		return null;
 	}
 
-	private List<List<TransitionEdge>> composeInvalidTransitions(List<List<TransitionEdge>> transitionsList) {
+	private List<List<TransitionEdge>> composeInvalidTransitions(StateMachineGraph stateMachine) throws Exception {
+		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
+		ArrayList<List<TransitionEdge>> transitionsList = stateMachineGraphAnalyser.getTransitions();
 		LinkedHashSet<List<TransitionEdge>> resultantList = Sets.newLinkedHashSet();
 		
 		// case 1 : transitions without accepting state => IncompleteOperationError
@@ -336,8 +360,9 @@ public class TestGenerator {
 					continue;
 				}
 				
-				itr.remove();
-				resultantList.add(transition);
+				transition.remove(edge);
+				if(!transitionsList.contains(transition))
+					resultantList.add(transition);
 				break;
 			}
 		}
@@ -362,7 +387,7 @@ public class TestGenerator {
 	}
 
 	private void generatePredicateAssertions(CrySLRule rule, TestMethod testMethod) {
-		CrySLPredicate predicate = this.toBeEnsuredPred;
+		CrySLPredicate predicate = toBeEnsuredPred.getKey();
 		
 		if(predicate != null) {
 			String param = predicate.getParameters().get(0).getName();
@@ -386,48 +411,66 @@ public class TestGenerator {
 	}
 
 //	private void printPredicateConnections() {
-//		for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> c : this.predicateConnections) {
+//		for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> c : predicateConnections) {
 //			CrySLPredicate key = c.getKey();
 //			Entry<CrySLRule, CrySLRule> value = c.getValue();
 //			System.out.println(key + " : " + Utils.retrieveOnlyClassName(value.getKey().getClassName()) + " -> " + Utils.retrieveOnlyClassName(value.getValue().getClassName()));
 //		}
 //	}
 	
-	private void populateMethod(CrySLRule curRule, List<TransitionEdge> currentTransition, TestMethod testMethod, TestClass testClass) {
+	private void populateMethod(CrySLRule curRule, List<TransitionEdge> currentTransition, TestMethod testMethod, TestClass testClass, boolean isImplicit) {
 
-		this.toBeEnsuredPred = findEnsuringPredicate(curRule, currentTransition);
-		generateMethodInvocations(curRule, testMethod, testClass, currentTransition);
+//		if(toBeEnsuredPred == null)
+//			determineEnsurePreds(curRule);
+		toBeEnsuredPred = new SimpleEntry(findEnsuringPredicate(curRule, currentTransition), new SimpleEntry(curRule, null));
+		List<String> methodInvocations = generateMethodInvocations(curRule, testMethod, testClass, currentTransition, isImplicit);
+		if (methodInvocations.isEmpty()) {
+			return;
+		}
+		
+		for (String methodInvocation : methodInvocations) {
+			testMethod.addStatementToBody(methodInvocation);
+		}
+		
 		generateAssertions(curRule, testMethod);
 
-//				if (this.codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
-//						.equals(this.codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
+//				if (codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
+//						.equals(codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
 //					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> originalPred = toBeEnsured.get();
-//					int indexOf = this.codeGenerator.getPredicateConnections().indexOf(originalPred);
-//					this.codeGenerator.getPredicateConnections().remove(indexOf);
-//					this.codeGenerator.getPredicateConnections().add(indexOf, this.codeGenerator.getToBeEnsuredPred());
+//					int indexOf = codeGenerator.getPredicateConnections().indexOf(originalPred);
+//					codeGenerator.getPredicateConnections().remove(indexOf);
+//					codeGenerator.getPredicateConnections().add(indexOf, codeGenerator.getToBeEnsuredPred());
 //				}
 
 //				reliablePreds.put(curRule.getClassName(), curRule.getPredicates());
 	}
 
-	private void generateMethodInvocations(CrySLRule rule, TestMethod testMethod, TestClass testClass, List<TransitionEdge> currentTransitions) {
-//		Set<StateNode> killStatements = this.codeGenerator.extractKillStatements(rule);
+	private List<String> generateMethodInvocations(CrySLRule rule, TestMethod testMethod, TestClass testClass, List<TransitionEdge> currentTransitions, boolean isExplicit) {
+		Set<StateNode> killStatements = extractKillStatements(rule);
 		List<String> methodInvocations = Lists.newArrayList();
-//		List<String> localKillers = Lists.newArrayList();
-//		boolean ensures = false;
+		List<String> localKillers = Lists.newArrayList();
+		boolean ensures = false;
 
 		Set<Entry<String, String>> testMethodVariables = Sets.newHashSet();
-//		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = new SimpleEntry<>(this.codeGenerator.getToBeEnsuredPred().getKey(), this.codeGenerator.getToBeEnsuredPred().getValue());
+		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = null;
+		if(toBeEnsuredPred != null)
+			pre = new SimpleEntry<>(toBeEnsuredPred.getKey(), toBeEnsuredPred.getValue());
 
 		StringBuilder instanceName = new StringBuilder();
 		for (TransitionEdge transition : currentTransitions) {
 			List<CrySLMethod> labels = transition.getLabel();
-//			Entry<CrySLMethod, Boolean> entry = this.codeGenerator.fetchEnsuringMethod(usablePreds, pre, labels, ensures);
-			CrySLMethod method = labels.get(0);
-//			ensures = entry.getValue();
-//			String methodName = method.getMethodName();
-//			// NOTE stripping away the package and retaining only method name
-//			methodName = methodName.substring(methodName.lastIndexOf(".") + 1);
+			CrySLMethod method = null;
+			if(isExplicit) {
+				method = labels.get(0);
+				ensures = true;
+			} else {
+				Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(pre, labels, ensures);
+				method = entry.getKey();
+				ensures = entry.getValue();
+			}
+			String methodName = method.getMethodName();
+			// NOTE stripping away the package and retaining only method name
+			methodName = methodName.substring(methodName.lastIndexOf(".") + 1);
 
 			StringBuilder sourceLineGenerator = constructMethodCall(method);
 
@@ -439,43 +482,115 @@ public class TestGenerator {
 				Activator.getDefault().logError(e);
 			}
 
-			Entry<String, List<Entry<String, String>>> methodInvocationWithTestMethodVariables = generateMethodInvocation(testMethod, testClass, method, rule, sourceLineGenerator, instanceName);
+			Entry<String, List<Entry<String, String>>> methodInvocationWithTestMethodVariables = generateMethodInvocation(testMethod, testClass, method, rule, sourceLineGenerator);
 			
 			testMethodVariables.addAll(methodInvocationWithTestMethodVariables.getValue());
 			String methodInvocation = methodInvocationWithTestMethodVariables.getKey();
 
 			if (!methodInvocation.isEmpty()) {
-//				if (killStatements.contains(transition.to())) {
-//					localKillers.add(methodInvocation);
-//				} else 
+				if (killStatements.contains(transition.to())) {
+					localKillers.add(methodInvocation);
+				} else 
 				{
 					methodInvocations.add(methodInvocation);
 				}
 			}
 		}
 		
-		testMethod.addVariablesToBody(testMethodVariables);
-		for (String methodInvocation : methodInvocations) {
-			testMethod.addStatementToBody(methodInvocation);
+		if (toBeEnsuredPred == null || ensures) {
+			kills.addAll(localKillers);
+			testMethod.addVariablesToBody(testMethodVariables);
+			return methodInvocations;
+		} else {
+			toBeEnsuredPred = pre;
+			return Lists.newArrayList();
 		}
 	}
 	
-	public String getLastInvokedMethodName(List<TransitionEdge> transitions) {
-		String lastInvokedMethodName = getLastInvokedMethod(transitions).toString();
-		lastInvokedMethodName = lastInvokedMethodName.substring(0, lastInvokedMethodName.lastIndexOf("("));
+	public Set<StateNode> extractKillStatements(CrySLRule rule) {
+		Set<StateNode> killStatements = rule.getPredicates().stream().filter(pred -> pred.isNegated() && pred instanceof CrySLCondPredicate)
+			.map(e -> ((CrySLCondPredicate) e).getConditionalMethods()).reduce(new HashSet<>(), (a, b) -> {
+				a.addAll(b);
+				return a;
+			});
+		return killStatements;
+	}
+	
+	public Entry<CrySLMethod, Boolean> fetchEnsuringMethod(Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre, List<CrySLMethod> labels, boolean ensures) {
+		CrySLMethod method = null;
+		for (CrySLMethod meth : labels) {
+			if (method != null) {
+				break;
+			} else {
+				toBeEnsuredPred = pre;
+			}
 
-		if (lastInvokedMethodName.contains("=")) {
-			lastInvokedMethodName = lastInvokedMethodName.substring(lastInvokedMethodName.lastIndexOf("=") + 1);
-			lastInvokedMethodName = lastInvokedMethodName.trim();
+			if (toBeEnsuredPred != null) {
+				//Predicate
+				method = fetchCorrespondingMethod(toBeEnsuredPred, meth, null);
+				if (method != null) {
+					ensures  = true;
+				}
+			}
+
+//			for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePred : usablePreds.entrySet()) {
+//				if (method == null) {
+//					method = fetchCorrespondingMethod(usablePred, meth, null);
+//				} else {
+//					break;
+//				}
+//			}
+
 		}
-		return lastInvokedMethodName;
+		// Determine method name and signature
+		if (method == null) {
+			method = labels.get(0);
+		}
+		return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(method, ensures);
 	}
 	
-	private CrySLMethod getLastInvokedMethod(List<TransitionEdge> transitions) {
-		TransitionEdge lastTransition = transitions.get(transitions.size() - 1);
-		CrySLMethod lastInvokedMethod = lastTransition.getLabel().get(0);
-		return lastInvokedMethod;
+	private CrySLMethod fetchCorrespondingMethod(Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pred, CrySLMethod meth, Set<CrySLObject> set) {
+		CrySLObject objectOfPred = (CrySLObject) pred.getKey().getParameters().get(0);
+		String predVarType = objectOfPred.getJavaType();
+		String predVarName = objectOfPred.getVarName();
+
+		//Method
+		Entry<String, String> retObject = meth.getRetObject();
+		String returnType = retObject.getValue();
+		String returnVarName = retObject.getKey();
+
+		if (Utils.isSubType(predVarType, returnType) && returnVarName
+			.equals(predVarName) || (predVarName.equals("this") && meth.getMethodName().endsWith(predVarType.substring(predVarType.lastIndexOf('.') + 1))) 
+			|| (predVarName.equals("this") && meth.getMethodName().endsWith("getInstance"))) {
+			return meth;
+		}
+		for (Entry<String, String> par : meth.getParameters()) {
+			String parType = par.getValue();
+			String parVarName = par.getKey();
+
+			if ((Utils.isSubType(predVarType, parType) || Utils.isSubType(parType, predVarType)) && (parVarName.equals(predVarName) || "this".equals(predVarName))) {
+				return meth;
+			}
+		}
+		return null;
 	}
+	
+//	public String getLastInvokedMethodName(List<TransitionEdge> transitions) {
+//		String lastInvokedMethodName = getLastInvokedMethod(transitions).toString();
+//		lastInvokedMethodName = lastInvokedMethodName.substring(0, lastInvokedMethodName.lastIndexOf("("));
+//
+//		if (lastInvokedMethodName.contains("=")) {
+//			lastInvokedMethodName = lastInvokedMethodName.substring(lastInvokedMethodName.lastIndexOf("=") + 1);
+//			lastInvokedMethodName = lastInvokedMethodName.trim();
+//		}
+//		return lastInvokedMethodName;
+//	}
+//	
+//	private CrySLMethod getLastInvokedMethod(List<TransitionEdge> transitions) {
+//		TransitionEdge lastTransition = transitions.get(transitions.size() - 1);
+//		CrySLMethod lastInvokedMethod = lastTransition.getLabel().get(0);
+//		return lastInvokedMethod;
+//	}
 	
 	
 	public StringBuilder constructMethodCall(CrySLMethod method) {
@@ -543,7 +658,7 @@ public class TestGenerator {
 	}
 
 	private Entry<String, List<Entry<String, String>>> generateMethodInvocation(TestMethod testMethod,
-			TestClass testClass, CrySLMethod method, CrySLRule rule, StringBuilder currentInvokedMethod, StringBuilder instanceName1) {
+			TestClass testClass, CrySLMethod method, CrySLRule rule, StringBuilder currentInvokedMethod) {
 
 		String methodInvocation = "";
 
@@ -580,7 +695,7 @@ public class TestGenerator {
 					} else {
 						methodInvocation = returnValueType + " " + returnValueName + " = " + instanceName + "." + currentInvokedMethod;
 					}
-					if(this.toBeEnsuredPred.getParameters().get(0).getName().equals(method.getRetObject().getKey())) {
+					if(toBeEnsuredPred.getKey().getParameters().get(0).getName().equals(method.getRetObject().getKey())) {
 						updateToBeEnsured( new SimpleEntry<String, String>(returnValueName, returnValueType));
 					}
 				} else {
@@ -607,44 +722,51 @@ public class TestGenerator {
 		for (Entry<String, String> parameter : parametersOfCall) {
 
 			// STEP 1 : check if any of the declared variables match the parameter
-			Optional<Entry<String, String>> typeMatch = declaredVariables.stream()
-				.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
-			if (typeMatch.isPresent()) {
-				updateToBeEnsured(typeMatch.get());
-				methodParameter = methodParameter.replace(parameter.getKey(), typeMatch.get().getKey());
-				continue;
-			}
+//			Optional<Entry<String, String>> typeMatch = declaredVariables.stream()
+//				.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
+//			if (typeMatch.isPresent()) {
+////				updateToBeEnsured(typeMatch.get());
+//				methodParameter = methodParameter.replace(parameter.getKey(), typeMatch.get().getKey());
+//				continue;
+//			}
 			
 			// STEP 2 : check if parameter can be ensured by any of the predicate connections
-			Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> producer = this.predicateConnections.stream()
-					.filter(e -> {
-						if(Utils.isSubType(e.getValue().getValue().getClassName(), rule.getClassName()) || Utils.isSubType(rule.getClassName(), e.getValue().getValue().getClassName())) {
-							final CrySLObject crySLObject = (CrySLObject) e.getKey().getParameters().get(0);
-							// why is this required?
-							return Utils.isSubType(crySLObject.getJavaType(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), crySLObject.getJavaType());
-						}
-						return false;
-					})
-					.findFirst();
-			
-			if(producer.isPresent()) {
-				final CrySLRule producerRule = (CrySLRule) producer.get().getValue().getKey();
-				if(!testMethod.isValid()) {
-					// even for invalid tests the method invocations are generated correctly for implicit rules
-					testMethod.setValid(true);
-					generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod);
-					testMethod.setValid(false);
-				} else {
-					generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod);
+			Optional<ISLConstraint> requiredPreds = rule.getConstraints().stream().filter(e -> 
+			e instanceof CrySLPredicate && e.getInvolvedVarNames().contains(parameter.getKey())).findFirst();
+			if(requiredPreds.isPresent()) {
+				Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> producer = predicateConnections.stream()
+						.filter(e -> {
+							if(Utils.isSubType(e.getValue().getValue().getClassName(), rule.getClassName()) || Utils.isSubType(rule.getClassName(), e.getValue().getValue().getClassName())) {
+								final CrySLObject crySLObject = (CrySLObject) e.getKey().getParameters().get(0);
+								// why is this required?
+								return Utils.isSubType(crySLObject.getJavaType(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), crySLObject.getJavaType());
+							}
+							return false;
+						})
+						.findFirst();
+
+				if(producer.isPresent()) {
+					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> temp = toBeEnsuredPred; 
+					toBeEnsuredPred = producer.get();
+					final CrySLRule producerRule = (CrySLRule) producer.get().getValue().getKey();
+					if(!testMethod.isValid()) {
+						// even for invalid tests the method invocations are generated correctly for implicit rules
+						testMethod.setValid(true);
+						generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
+						testMethod.setValid(false);
+					} else {
+						generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
+					}
+					toBeEnsuredPred = temp;
+
+					Optional<Entry<String, String>> match = declaredVariables.stream()
+							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
+					if (match.isPresent()) {
+//						updateToBeEnsured(match.get());
+						methodParameter = methodParameter.replace(parameter.getKey(), match.get().getKey());
+					}
+					continue;
 				}
-				
-				Optional<Entry<String, String>> match = declaredVariables.stream()
-						.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
-				if (match.isPresent()) {
-					updateToBeEnsured(match.get());
-					methodParameter = methodParameter.replace(parameter.getKey(), match.get().getKey());
-				}
-				continue;
 			}
 			
 			// STEP 3 : check if parameter can be generated by analysing CONSTRAINTS of the corresponding CrySL rule
@@ -670,7 +792,7 @@ public class TestGenerator {
 	
 	public void updateToBeEnsured(Entry<String, String> entry) {
 		if (toBeEnsuredPred != null) {
-			CrySLPredicate existing = toBeEnsuredPred;
+			CrySLPredicate existing = toBeEnsuredPred.getKey();
 			CrySLObject predicatePar = (CrySLObject) existing.getParameters().get(0);
 
 			if (!"this".equals(predicatePar.getVarName())) {
@@ -682,8 +804,8 @@ public class TestGenerator {
 					}
 				}
 				if (!parameters.isEmpty()) {
-					toBeEnsuredPred = new CrySLPredicate(existing.getBaseObject(), existing
-						.getPredName(), parameters, existing.isNegated(), existing.getConstraint());
+					toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(new CrySLPredicate(existing.getBaseObject(), existing
+						.getPredName(), parameters, existing.isNegated(), existing.getConstraint()), toBeEnsuredPred.getValue());
 				}
 			}
 
@@ -866,4 +988,18 @@ public class TestGenerator {
 		}
 		return "/" + mode + "/" + pad;
 	}
+	
+//	public Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> determineEnsurePreds(CrySLRule rule) {
+//		Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> toBeEnsured;
+//		Stream<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> filter = predicateConnections.stream().filter(e -> {
+//			String ruleClassName = rule.getClassName();
+//			String keyClassName = e.getValue().getKey().getClassName();
+//			return Utils.isSubType(ruleClassName, keyClassName) || Utils.isSubType(keyClassName, ruleClassName);
+//		});
+//		toBeEnsured = filter.findFirst();
+//		if (toBeEnsured.isPresent()) {
+//			toBeEnsuredPred = toBeEnsured.get();
+//		}
+//		return toBeEnsured;
+//	}
 }
