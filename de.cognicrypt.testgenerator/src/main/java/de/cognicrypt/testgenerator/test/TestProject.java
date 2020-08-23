@@ -46,11 +46,11 @@ public class TestProject {
 	private DeveloperProject dProject;
 	public TestProject(String name) {
 		try {
-			this.jProject = createJavaProject(name);
+			jProject = createJavaProject(name);
 		} catch (CoreException e) {
 			Activator.getDefault().logError(e, "Failed to create test project.");
 		}
-		this.dProject = new DeveloperProject(jProject.getProject());
+		dProject = new DeveloperProject(jProject.getProject());
 		addAdditionalFiles("lib");
 	}
 	
@@ -81,18 +81,18 @@ public class TestProject {
 	}
 
 	private boolean addAddtionalFile(File fileToBeAdded) throws CoreException, IOException {
-		final IFolder libFolder = this.dProject.getFolder(Constants.pathsForLibrariesInDevProject);
+		final IFolder libFolder = dProject.getFolder(Constants.pathsForLibrariesInDevProject);
 		if (!libFolder.exists()) {
 			libFolder.create(true, true, null);
 		}
 
 		final Path memberPath = fileToBeAdded.toPath();
-		Files.copy(memberPath, new File(this.dProject.getProjectPath() + Constants.outerFileSeparator + Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + memberPath.getFileName()).toPath(),
+		Files.copy(memberPath, new File(dProject.getProjectPath() + Constants.outerFileSeparator + Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + memberPath.getFileName()).toPath(),
 				StandardCopyOption.REPLACE_EXISTING);
 		final String filePath = fileToBeAdded.toString();
 		final String cutPath = filePath.substring(filePath.lastIndexOf(Constants.outerFileSeparator));
 		if (Constants.JAR.equals(cutPath.substring(cutPath.indexOf(".")))) {
-			if (!this.dProject.addJar(Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + fileToBeAdded.getName())) {
+			if (!dProject.addJar(Constants.pathsForLibrariesInDevProject + Constants.outerFileSeparator + fileToBeAdded.getName())) {
 				return false;
 			}
 		}
@@ -113,7 +113,7 @@ public class TestProject {
 	public IResource generateTestClass(final String className) throws JavaModelException {
 
 		String testClassName = className + "Test";
-		final IPackageFragment pack = this.jProject.getPackageFragmentRoot(this.jProject.getProject().getFolder("src")).createPackageFragment("jca", false, null);
+		final IPackageFragment pack = jProject.getPackageFragmentRoot(jProject.getProject().getFolder("src")).createPackageFragment("jca", false, null);
 		final String source = "public class " + testClassName + " {\n\n}\n";
 		final StringBuffer buffer = new StringBuffer();
 		buffer.append("package " + pack.getElementName() + ";\r\n\r\n");
@@ -205,12 +205,12 @@ public class TestProject {
 	}
 
 	public String getProjectPath() {
-		return this.dProject.getProjectPath();
+		return dProject.getProjectPath();
 	}
 
 	public String getSourcePath() {
 		try {
-			return this.dProject.getSourcePath();
+			return dProject.getSourcePath();
 		} catch (CoreException e) {
 			e.printStackTrace();
 		}

@@ -45,10 +45,10 @@ public class TestMethod extends GeneratorMethod {
 			String[] varDecl = statement.substring(0, index).split(" ");
 			if (varDecl.length == 2) {
 				SimpleEntry<String, String> newVar = new SimpleEntry<>(varDecl[1], varDecl[0]);
-				if (this.variableDeclarations.contains(newVar)) {
+				if (variableDeclarations.contains(newVar)) {
 					return;
 				}
-				this.variableDeclarations.add(newVar);
+				variableDeclarations.add(newVar);
 				String simpleVarType = Utils.retrieveOnlyClassName(newVar.getValue());
 				statement = simpleVarType + " " + varDecl[1] + " = " + statement.split(" = ")[1];
 			}
@@ -61,7 +61,7 @@ public class TestMethod extends GeneratorMethod {
 		
 		String annotation = "@Test\n";
 		StringBuilder method = new StringBuilder(annotation);
-		String signature = this.modifier + " " + this.returnType + " " + this.name + "(";
+		String signature = modifier + " " + returnType + " " + name + "(";
 		method.append(signature);
 		for (int i = 0; i < getParameters().size(); i++) {
 			Entry<String, String> parAtI = getParameters().get(i);
@@ -73,12 +73,12 @@ public class TestMethod extends GeneratorMethod {
 			}
 		}
 		method.append(")");
-		if (this.exceptions.size() > 0) {
+		if (exceptions.size() > 0) {
 			method.append(" throws ");
-			List<String> exAsList = Lists.newArrayList(this.exceptions);
-			for (int i = 0; i < this.exceptions.size(); i++) {
+			List<String> exAsList = Lists.newArrayList(exceptions);
+			for (int i = 0; i < exceptions.size(); i++) {
 				method.append(Utils.retrieveOnlyClassName(exAsList.get(i)));
-				if (i < this.exceptions.size() - 1) {
+				if (i < exceptions.size() - 1) {
 					method.append(", ");
 				}
 			}

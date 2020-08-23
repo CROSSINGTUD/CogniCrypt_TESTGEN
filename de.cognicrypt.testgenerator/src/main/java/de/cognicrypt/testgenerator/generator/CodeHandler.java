@@ -18,7 +18,7 @@ public class CodeHandler {
 	 *        Array of file objects that include java code
 	 */
 	public CodeHandler(Set<TestClass> classes) {
-		this.testClasses = classes;
+		testClasses = classes;
 	}
 
 	public File writeToDisk(final String folderPath) throws Exception {

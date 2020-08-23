@@ -17,9 +17,9 @@ public class TestClass extends GeneratorClass {
 	private int numberOfInvalidTestCases;
 	
 	public TestClass(String name) {
-		this.className = name;
-		this.imports = Sets.newHashSet(Constants.TEST_IMPORTS);
-		this.methods = overriddenMethods();
+		className = name;
+		imports = Sets.newHashSet(Constants.TEST_IMPORTS);
+		methods = overriddenMethods();
 	}
 
 	private List<GeneratorMethod> overriddenMethods() {
@@ -33,17 +33,17 @@ public class TestClass extends GeneratorClass {
 	
 	public String toString() {
 		StringBuilder classContent = new StringBuilder("package ");
-		classContent.append(this.packageName);
+		classContent.append(packageName);
 		classContent.append(";\n");
-		for (String impo : this.imports) {
+		for (String impo : imports) {
 			classContent.append("import ");
 			classContent.append(impo);
 			classContent.append(";\n");
 		}
 		classContent.append("\n");
-		classContent.append(this.modifier + " class " + this.className + "Test" + " extends UsagePatternTestingFramework {\n");
+		classContent.append(modifier + " class " + className + "Test" + " extends UsagePatternTestingFramework {\n");
 
-		for (GeneratorMethod genMeth : this.methods) {
+		for (GeneratorMethod genMeth : methods) {
 			classContent.append(genMeth);
 			classContent.append("\n");
 		}
@@ -54,16 +54,16 @@ public class TestClass extends GeneratorClass {
 
 	public TestMethod addTestMethod(boolean isValid) { // Final Format : cipherCorrectTest1, cipherIncorrectTest1 ...
 		
-		String name = Character.toLowerCase(this.className.charAt(0)) + this.className.substring(1);
+		String name = Character.toLowerCase(className.charAt(0)) + className.substring(1);
 		if(isValid)
-			name  += "ValidTest" + ++this.numberOfValidTestCases;
+			name  += "ValidTest" + ++numberOfValidTestCases;
 		else
-			name += "InvalidTest" + ++this.numberOfInvalidTestCases;
+			name += "InvalidTest" + ++numberOfInvalidTestCases;
 		
 		TestMethod testMethod = new TestMethod(name, isValid);
 		testMethod.setModifier("public");
 		testMethod.setReturnType("void");
-		this.methods.add(testMethod);
+		methods.add(testMethod);
 		return testMethod;
 	}
 	
@@ -80,6 +80,6 @@ public class TestClass extends GeneratorClass {
 	
 	public void addImport(String imp) {
 		imp = Utils.preprocessImports(imp);
-		this.imports.add(imp);
+		imports.add(imp);
 	}
 }
