@@ -3,7 +3,8 @@ java.security.SecureRandom
 javax.crypto.spec.SecretKeySpec 
 javax.crypto.KeyGenerator
 javax.crypto.SecretKeyFactory
-java.security.KeyStore javax.crypto.spec.DHParameterSpec 
+java.security.KeyStore 
+javax.crypto.spec.DHParameterSpec 
 javax.net.ssl.TrustManagerFactory
 java.security.AlgorithmParameters 
 javax.net.ssl.CertPathTrustManagerParameters 
@@ -20,10 +21,18 @@ java.security.cert.PKIXBuilderParameters
 java.security.cert.PKIXParameters
 java.security.spec.RSAKeyGenParameterSpec
 javax.net.ssl.TrustManagerFactory
-java.security.KeyPair
 javax.net.ssl.KeyManagerFactory
 javax.net.ssl.KeyStoreBuilderParameters
 java.security.spec.DSAParameterSpec
 javax.net.ssl.SSLParameters
 javax.net.ssl.SSLContext
 javax.crypto.spec.PBEKeySpec
+javax.crypto.Cipher
+java.security.DigestInputStream
+java.security.DigestOutputStream
+java.security.spec.ECParameterSpec
+java.security.spec.ECGenParameterSpec
+java.security.KeyFactory
+javax.crypto.Mac
+java.security.spec.MGF1ParameterSpec
+javax.crypto.spec.OAEPParameterSpec
