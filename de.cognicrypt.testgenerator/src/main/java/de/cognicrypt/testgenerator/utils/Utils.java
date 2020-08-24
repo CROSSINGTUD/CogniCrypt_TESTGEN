@@ -152,7 +152,10 @@ public class Utils extends de.cognicrypt.utils.Utils {
 				i++;
 			} else {
 				try {
-					if(parameter.getValue().contains("[")) {
+					if(parameter.getValue().contains("AnyType")) {
+						methodParameter[i] = AnyType.class;
+					}
+					else if(parameter.getValue().contains("[")) {
 						String typeName = parameter.getValue().replaceAll("[\\[\\]]","");
 						Class<?> className = Class.forName(typeName);
 						methodParameter[i] = Array.newInstance(className, 0).getClass();

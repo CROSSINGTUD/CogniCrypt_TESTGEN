@@ -2,6 +2,7 @@ package de.cognicrypt.testgenerator.generator;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.AbstractMap;
@@ -648,7 +649,7 @@ public class TestGenerator {
 	
 	private boolean matchMethodParameters(Class<?>[] methodParameters, Class<?>[] classes) {
 		for (int i = 0; i < methodParameters.length; i++) {
-			if (methodParameters[i].getName().equals("AnyType")) {
+			if (methodParameters[i].getName().equals("de.cognicrypt.testgenerator.utils.AnyType")) {
 				continue;
 			} else if (!methodParameters[i].equals(classes[i])) {
 				return false;
@@ -719,6 +720,8 @@ public class TestGenerator {
 		List<Entry<String, String>> declaredVariables = testMethod.getDeclaredVariables();
 		List<Entry<String, String>> parametersOfCall = crySLMethod.getParameters();
 		
+		methodParameter = resolveVoidTypes(crySLMethod, methodParameter);
+		
 		for (Entry<String, String> parameter : parametersOfCall) {
 
 			// STEP 1 : check if any of the declared variables match the parameter
@@ -788,6 +791,49 @@ public class TestGenerator {
 		
 		currentInvokedMethod = methodNamdResultAssignment + methodParameter + appendix;
 		return new SimpleEntry<>(currentInvokedMethod, variablesToBeAdded);
+	}
+
+	private String resolveVoidTypes(CrySLMethod crySLMethod, String methodParameter) {
+		
+		List<Entry<String, String>> parametersOfCall = crySLMethod.getParameters();
+		for (Entry<String, String> parameter : parametersOfCall) {
+			if(parameter.getValue().equals("AnyType")) {
+				Class<?>[] cryslMethodParameters = Utils.collectParameterTypes(crySLMethod.getParameters());
+				String className = crySLMethod.getMethodName().substring(0, crySLMethod.getMethodName().lastIndexOf("."));
+				String methodName = crySLMethod.getShortMethodName();
+				Parameter[] originalMethodParameters = null;
+				try {
+					Method[] methods = Class.forName(className).getMethods();
+					for (Method meth : methods) {
+						if (meth.getName().equals(methodName) && cryslMethodParameters.length == meth.getParameterCount()) {
+							if (matchMethodParameters(cryslMethodParameters, meth.getParameterTypes())) {
+								originalMethodParameters = meth.getParameters();
+							}
+						}
+					}
+					Constructor[] constructors = Class.forName(className).getConstructors();
+					for (Constructor cons: constructors) {
+						String fullyQualifiedName = cons.getName();
+						String consName = Utils.retrieveOnlyClassName(fullyQualifiedName);
+						if (consName.equals(methodName) && cryslMethodParameters.length == cons.getParameterCount()) {
+							if (matchMethodParameters(cryslMethodParameters, cons.getParameterTypes())) {
+								originalMethodParameters = cons.getParameters();
+								break;
+							}
+						}
+					}
+				} catch (SecurityException | ClassNotFoundException e) {
+					Activator.getDefault().logError(e, "Unable to resolve void type.");
+				}
+				int index = parametersOfCall.indexOf(parameter);
+				String resolvedType = originalMethodParameters[index].getType().getCanonicalName();
+				String resolvedName = originalMethodParameters[index].getName();
+				Entry<String, String> resolvedParameter = new SimpleEntry<String, String>(resolvedName, resolvedType);
+				parametersOfCall.set(index, resolvedParameter);
+				methodParameter = methodParameter.replaceFirst(parameter.getKey(), resolvedParameter.getKey());
+			}
+		}
+		return methodParameter;
 	}
 	
 	public void updateToBeEnsured(Entry<String, String> entry) {

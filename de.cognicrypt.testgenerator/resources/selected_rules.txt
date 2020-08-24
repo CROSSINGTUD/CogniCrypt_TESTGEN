@@ -36,3 +36,4 @@ java.security.KeyFactory
 javax.crypto.Mac
 java.security.spec.MGF1ParameterSpec
 javax.crypto.spec.OAEPParameterSpec
+java.security.cert.TrustAnchor
