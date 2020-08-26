@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -341,30 +342,40 @@ public class TestGenerator {
 		
 		// case 1 : transitions without accepting state => IncompleteOperationError
 		for (List<TransitionEdge> transition : transitionsList) {
-			List<TransitionEdge> result = transition.stream().filter(e -> e.getRight().getAccepting() != true).collect(Collectors.toList());
-			if(!result.isEmpty())
-				resultantList.add(result);
+			List<TransitionEdge> temp = Lists.newArrayList();
+			Iterator<TransitionEdge> t = transition.iterator();
+			while (t.hasNext()) {
+				TransitionEdge edge = t.next();
+				if (edge.getRight().getAccepting())
+					break;
+				temp.add(edge);
+				if (!temp.isEmpty())
+					resultantList.add(new ArrayList<TransitionEdge>(temp));
+			}
 		}
 		
 		// case 2 : transitions with missing intermediate states => TypestateError
 		for (List<TransitionEdge> transition : transitionsList) {
-			if(transition.size() == 1)
-				break;
-			
-			Iterator<TransitionEdge> itr = transition.iterator();
-			while (itr.hasNext()) {
-				TransitionEdge edge = itr.next();
-				if (edge.getLeft().isInitialState())
-					continue;
-			
-				if(edge.getRight().getAccepting()) {
-					continue;
+			int endIndex = transition.size() - 1;
+			int skipIndex = 1;
+			if (endIndex > 1) {
+				while (skipIndex < endIndex) {
+					List<TransitionEdge> temp = Lists.newArrayList();
+					ListIterator<TransitionEdge> t = transition.listIterator();
+		
+					while (t.hasNext()) {
+						if (t.nextIndex() == skipIndex) {
+							t.next();
+							continue;
+						}
+						TransitionEdge edge = t.next();
+						temp.add(edge);
+					}
+					if (!temp.isEmpty())
+						resultantList.add(new ArrayList<TransitionEdge>(temp));
+					
+					skipIndex++;
 				}
-				
-				transition.remove(edge);
-				if(!transitionsList.contains(transition))
-					resultantList.add(transition);
-				break;
 			}
 		}
 		
