@@ -770,6 +770,14 @@ public class TestGenerator {
 						.findFirst();
 
 				if(producer.isPresent()) {
+
+					Optional<Entry<String, String>> preMatch = declaredVariables.stream()
+							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
+					if (preMatch.isPresent()) {
+						methodParameter = methodParameter.replace(parameter.getKey(), preMatch.get().getKey());
+						continue;
+					}
+
 					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> temp = toBeEnsuredPred; 
 					toBeEnsuredPred = producer.get();
 					final CrySLRule producerRule = (CrySLRule) producer.get().getValue().getKey();
@@ -783,11 +791,11 @@ public class TestGenerator {
 					}
 					toBeEnsuredPred = temp;
 
-					Optional<Entry<String, String>> match = declaredVariables.stream()
+					Optional<Entry<String, String>> postMatch = declaredVariables.stream()
 							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
-					if (match.isPresent()) {
+					if (postMatch.isPresent()) {
 //						updateToBeEnsured(match.get());
-						methodParameter = methodParameter.replace(parameter.getKey(), match.get().getKey());
+						methodParameter = methodParameter.replace(parameter.getKey(), postMatch.get().getKey());
 					}
 					continue;
 				}
