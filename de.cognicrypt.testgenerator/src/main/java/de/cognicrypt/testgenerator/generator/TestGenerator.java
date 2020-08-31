@@ -353,20 +353,15 @@ public class TestGenerator {
 		LinkedHashSet<List<TransitionEdge>> resultantList = Sets.newLinkedHashSet();
 		
 		// case 1 : transitions without accepting state => IncompleteOperationError
-		for (List<TransitionEdge> transition : transitionsList) {
-			List<TransitionEdge> temp = Lists.newArrayList();
-			Iterator<TransitionEdge> t = transition.iterator();
-			while (t.hasNext()) {
-				TransitionEdge edge = t.next();
-				if (edge.getRight().getAccepting())
-					break;
-				temp.add(edge);
-				if (!temp.isEmpty())
-					resultantList.add(new ArrayList<TransitionEdge>(temp));
-			}
-		}
+		composeIncompleteOperationErrorTransitions(transitionsList, resultantList);
 		
 		// case 2 : transitions with missing intermediate states => TypestateError
+		composeTypestateErrorTransitions(transitionsList, resultantList);
+		
+		return Lists.newArrayList(resultantList);
+	}
+
+	private void composeTypestateErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, LinkedHashSet<List<TransitionEdge>> resultantList) {
 		for (List<TransitionEdge> transition : transitionsList) {
 			int endIndex = transition.size() - 1;
 			int skipIndex = 1;
@@ -383,15 +378,28 @@ public class TestGenerator {
 						TransitionEdge edge = t.next();
 						temp.add(edge);
 					}
-					if (!temp.isEmpty())
+					if (!temp.isEmpty() && !Utils.isPresent(temp, resultantList))
 						resultantList.add(new ArrayList<TransitionEdge>(temp));
 					
 					skipIndex++;
 				}
 			}
 		}
-		
-		return Lists.newArrayList(resultantList);
+	}
+
+	private void composeIncompleteOperationErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, LinkedHashSet<List<TransitionEdge>> resultantList) {
+		for (List<TransitionEdge> transition : transitionsList) {
+			List<TransitionEdge> temp = Lists.newArrayList();
+			Iterator<TransitionEdge> t = transition.iterator();
+			while (t.hasNext()) {
+				TransitionEdge edge = t.next();
+				if (edge.getRight().getAccepting())
+					break;
+				temp.add(edge);
+				if (!temp.isEmpty())
+					resultantList.add(new ArrayList<TransitionEdge>(temp));
+			}
+		}
 	}
 
 	private void generateAssertions(CrySLRule rule, TestMethod testMethod) {
