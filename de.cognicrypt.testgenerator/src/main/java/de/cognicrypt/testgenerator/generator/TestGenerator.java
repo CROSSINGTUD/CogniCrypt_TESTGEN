@@ -227,7 +227,7 @@ public class TestGenerator {
 			List<TransitionEdge> currentTransition = invalidTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(false);
 			instancesCache.clear();
-			generateValidTest(curRule, testClass, currentTransition, testMethod, true);
+			generateTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
 
@@ -238,11 +238,11 @@ public class TestGenerator {
 			List<TransitionEdge> currentTransition = validTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(true);
 			instancesCache.clear();
-			generateValidTest(curRule, testClass, currentTransition, testMethod, true);
+			generateTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
 
-	private void generateValidTest(CrySLRule curRule, TestClass testClass, List<TransitionEdge> currentTransition,
+	private void generateTest(CrySLRule curRule, TestClass testClass, List<TransitionEdge> currentTransition,
 			TestMethod testMethod, boolean isExplicit) {
 		Set<String> imports = Utils.determineImports(currentTransition);
 		testClass.addImports(imports);
@@ -811,10 +811,10 @@ public class TestGenerator {
 					if(!testMethod.isValid()) {
 						// even for invalid tests the method invocations are generated correctly for implicit rules
 						testMethod.setValid(true);
-						generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
+						generateTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
 						testMethod.setValid(false);
 					} else {
-						generateValidTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
+						generateTest(producerRule, testClass, getValidTransitionFromStateMachine(producerRule.getUsagePattern()), testMethod, false);
 					}
 					toBeEnsuredPred = temp;
 
