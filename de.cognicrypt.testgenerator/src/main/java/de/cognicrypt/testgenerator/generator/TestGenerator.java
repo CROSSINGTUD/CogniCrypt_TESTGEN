@@ -746,7 +746,7 @@ public class TestGenerator {
 			suffix++;
 			name = prefixName + suffix;
 		}
-		instancesCache.add(name);
+		instancesCache.push(name);
 		return name;
 	}
 
