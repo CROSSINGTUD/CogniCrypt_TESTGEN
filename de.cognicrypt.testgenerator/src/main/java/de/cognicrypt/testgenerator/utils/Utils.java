@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -198,15 +197,16 @@ public class Utils extends de.cognicrypt.utils.Utils {
 	}
 	
 	// This method is needed because equals in TransitionEdge also takes StateNode for comparison.
-	public static boolean isPresent(List<TransitionEdge> keyTransition, LinkedHashSet<List<TransitionEdge>> resultantList) {
+	public static boolean isPresent(List<TransitionEdge> keyTransition, List<List<TransitionEdge>> resultantList) {
+		
 		for (List<TransitionEdge> transition : resultantList) {
 			int length = 0;
 			for (TransitionEdge edge : transition) {
-				if(edge.getLabel().equals(keyTransition.get(length).getLabel())) {
+				if(length < keyTransition.size() && edge.getLabel().equals(keyTransition.get(length).getLabel())) {
 					length++;
 				}
 				
-				if(length == keyTransition.size())
+				if(length == keyTransition.size() && length == transition.size())
 					return true;
 			}
 		}

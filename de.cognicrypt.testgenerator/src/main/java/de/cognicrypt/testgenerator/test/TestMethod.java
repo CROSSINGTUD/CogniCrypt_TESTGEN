@@ -46,11 +46,13 @@ public class TestMethod extends GeneratorMethod {
 			if (varDecl.length == 2) {
 				SimpleEntry<String, String> newVar = new SimpleEntry<>(varDecl[1], varDecl[0]);
 				if (variableDeclarations.contains(newVar)) {
-					return;
+					statement = varDecl[1] + " = " + statement.split(" = ")[1];
 				}
-				variableDeclarations.add(newVar);
-				String simpleVarType = Utils.retrieveOnlyClassName(newVar.getValue());
-				statement = simpleVarType + " " + varDecl[1] + " = " + statement.split(" = ")[1];
+				else {
+					variableDeclarations.add(newVar);
+					String simpleVarType = Utils.retrieveOnlyClassName(newVar.getValue());
+					statement = simpleVarType + " " + varDecl[1] + " = " + statement.split(" = ")[1];
+				}
 			}
 		}
 		body.append(statement);

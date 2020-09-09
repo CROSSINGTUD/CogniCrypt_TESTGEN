@@ -82,6 +82,8 @@ public class TestGenerator {
 		rules = CrySLUtils.readCrySLRules();
 		LOGGER.info("Finished reading ruleset.");
 		rdt = new RuleDependencyTree(rules);
+		populatePredicateConnections();
+//		printPredicateConnections();
 	}
 
 	public static TestGenerator getInstance() {
@@ -96,7 +98,9 @@ public class TestGenerator {
 		List<String> selectedRules = Utils.getSelectedRules(); 
 		Set<TestClass> testClasses = Sets.newHashSet();
 		
-		for (CrySLRule curRule : rules) {
+		Iterator<CrySLRule> ruleIterator = rules.iterator();
+		while (ruleIterator.hasNext()) {
+			CrySLRule curRule = ruleIterator.next();
 			if(curRule.getClassName().equals("java.security.SecureRandom")) {
 //			if(selectedRules.contains(curRule.getClassName())) {
 				LOGGER.info("Creating tests for " + curRule.getClassName());
@@ -107,9 +111,7 @@ public class TestGenerator {
 				testClass.setModifier("public");
 				testClasses.add(testClass);
 				
-				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
-				populatePredicateConnections();
-//				printPredicateConnections();
+//				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
 
 				ruleParameterCache.clear();
 				// valid test cases
@@ -117,6 +119,8 @@ public class TestGenerator {
 				
 				// invalid test cases
 				generateInvalidTests(curRule, testClass);
+				
+				ruleIterator.remove();
 			}
 		}
 		writeToDisk(testClasses);
@@ -350,7 +354,7 @@ public class TestGenerator {
 	private List<List<TransitionEdge>> composeInvalidTransitions(StateMachineGraph stateMachine) throws Exception {
 		StateMachineGraphAnalyser stateMachineGraphAnalyser = new StateMachineGraphAnalyser(stateMachine);
 		ArrayList<List<TransitionEdge>> transitionsList = stateMachineGraphAnalyser.getTransitions();
-		LinkedHashSet<List<TransitionEdge>> resultantList = Sets.newLinkedHashSet();
+		ArrayList<List<TransitionEdge>> resultantList = Lists.newArrayList();
 		
 		// case 1 : transitions without accepting state => IncompleteOperationError
 		composeIncompleteOperationErrorTransitions(transitionsList, resultantList);
@@ -361,7 +365,7 @@ public class TestGenerator {
 		return Lists.newArrayList(resultantList);
 	}
 
-	private void composeTypestateErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, LinkedHashSet<List<TransitionEdge>> resultantList) {
+	private void composeTypestateErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, List<List<TransitionEdge>> resultantList) {
 		for (List<TransitionEdge> transition : transitionsList) {
 			int endIndex = transition.size() - 1;
 			int skipIndex = 1;
@@ -378,7 +382,7 @@ public class TestGenerator {
 						TransitionEdge edge = t.next();
 						temp.add(edge);
 					}
-					if (!temp.isEmpty() && !Utils.isPresent(temp, resultantList))
+					if (!temp.isEmpty() && !Utils.isPresent(temp, resultantList) && !Utils.isPresent(temp, transitionsList))
 						resultantList.add(new ArrayList<TransitionEdge>(temp));
 					
 					skipIndex++;
@@ -387,7 +391,7 @@ public class TestGenerator {
 		}
 	}
 
-	private void composeIncompleteOperationErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, LinkedHashSet<List<TransitionEdge>> resultantList) {
+	private void composeIncompleteOperationErrorTransitions(ArrayList<List<TransitionEdge>> transitionsList, List<List<TransitionEdge>> resultantList) {
 		for (List<TransitionEdge> transition : transitionsList) {
 			List<TransitionEdge> temp = Lists.newArrayList();
 			Iterator<TransitionEdge> t = transition.iterator();
@@ -396,7 +400,7 @@ public class TestGenerator {
 				if (edge.getRight().getAccepting())
 					break;
 				temp.add(edge);
-				if (!temp.isEmpty())
+				if (!temp.isEmpty() && !Utils.isPresent(temp, resultantList) && !Utils.isPresent(temp, transitionsList))
 					resultantList.add(new ArrayList<TransitionEdge>(temp));
 			}
 		}
