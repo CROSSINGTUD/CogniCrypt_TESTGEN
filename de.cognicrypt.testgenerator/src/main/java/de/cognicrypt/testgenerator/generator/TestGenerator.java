@@ -14,10 +14,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
@@ -772,7 +770,7 @@ public class TestGenerator {
 		List<Entry<String, String>> declaredVariables = testMethod.getDeclaredVariables();
 		List<Entry<String, String>> parametersOfCall = crySLMethod.getParameters();
 		
-		methodParameter = resolveVoidTypes(crySLMethod, methodParameter);
+		methodParameter = resolveVoidTypes(crySLMethod, methodParameter, testClass);
 		
 		for (Entry<String, String> parameter : parametersOfCall) {
 
@@ -843,36 +841,38 @@ public class TestGenerator {
 			}
 
 			// STEP 4 : If everything fails, then it add the parameter as declared variables in the test method
-			variablesToBeAdded.add(parameter);
-			String paramType = parameter.getValue();
-			if (paramType.contains(".")) {
-				testClass.addImport(parameter.getValue());
-			}	
-
+			if(!parameter.getValue().equals("AnyType")) {
+				variablesToBeAdded.add(parameter);
+				String paramType = parameter.getValue();
+				if (paramType.contains(".")) {
+					testClass.addImport(paramType);
+				}	
+			}
 		}
 		
 		currentInvokedMethod = methodNamdResultAssignment + methodParameter + appendix;
 		return new SimpleEntry<>(currentInvokedMethod, variablesToBeAdded);
 	}
 
-	private String resolveVoidTypes(CrySLMethod crySLMethod, String methodParameter) {
+	private String resolveVoidTypes(CrySLMethod crySLMethod, String methodParameter, TestClass testClass) {
 		
 		List<Entry<String, String>> parametersOfCall = crySLMethod.getParameters();
-		for (Entry<String, String> parameter : parametersOfCall) {
-			if(parameter.getValue().equals("AnyType")) {
-				Class<?>[] cryslMethodParameters = Utils.collectParameterTypes(crySLMethod.getParameters());
-				String className = crySLMethod.getMethodName().substring(0, crySLMethod.getMethodName().lastIndexOf("."));
-				String methodName = crySLMethod.getShortMethodName();
-				Parameter[] originalMethodParameters = null;
-				try {
-					Method[] methods = Class.forName(className).getMethods();
-					for (Method meth : methods) {
-						if (meth.getName().equals(methodName) && cryslMethodParameters.length == meth.getParameterCount()) {
-							if (matchMethodParameters(cryslMethodParameters, meth.getParameterTypes())) {
-								originalMethodParameters = meth.getParameters();
-							}
+		if(parametersOfCall.contains(new SimpleEntry<>("_", "AnyType"))) {
+			Class<?>[] cryslMethodParameters = Utils.collectParameterTypes(crySLMethod.getParameters());
+			String className = crySLMethod.getMethodName().substring(0, crySLMethod.getMethodName().lastIndexOf("."));
+			String methodName = crySLMethod.getShortMethodName();
+			Parameter[] originalMethodParameters = null;
+			try {
+				Method[] methods = Class.forName(className).getMethods();
+				for (Method meth : methods) {
+					if (meth.getName().equals(methodName) && cryslMethodParameters.length == meth.getParameterCount()) {
+						if (matchMethodParameters(cryslMethodParameters, meth.getParameterTypes())) {
+							originalMethodParameters = meth.getParameters();
+							break;
 						}
 					}
+				}
+				if(originalMethodParameters == null) {
 					Constructor[] constructors = Class.forName(className).getConstructors();
 					for (Constructor cons: constructors) {
 						String fullyQualifiedName = cons.getName();
@@ -884,15 +884,20 @@ public class TestGenerator {
 							}
 						}
 					}
-				} catch (SecurityException | ClassNotFoundException e) {
-					Activator.getDefault().logError(e, "Unable to resolve void type.");
 				}
-				int index = parametersOfCall.indexOf(parameter);
-				String resolvedType = originalMethodParameters[index].getType().getCanonicalName();
-				String resolvedName = originalMethodParameters[index].getName();
-				Entry<String, String> resolvedParameter = new SimpleEntry<String, String>(resolvedName, resolvedType);
-				parametersOfCall.set(index, resolvedParameter);
-				methodParameter = methodParameter.replaceFirst(parameter.getKey(), resolvedParameter.getKey());
+			} catch (SecurityException | ClassNotFoundException e) {
+				Activator.getDefault().logError(e, "Unable to resolve void type.");
+			}
+
+			ListIterator<Entry<String, String>> itr = parametersOfCall.listIterator();
+			while(itr.hasNext()) {
+				if(itr.next().getValue().equals("AnyType")) {
+					String resolvedType = originalMethodParameters[itr.previousIndex()].getType().getCanonicalName();
+					methodParameter = methodParameter.replaceFirst("_", "(" + Utils.retrieveOnlyClassName(resolvedType) + ") null");
+					if (resolvedType.contains(".")) {
+						testClass.addImport(resolvedType);
+					}
+				}
 			}
 		}
 		return methodParameter;
