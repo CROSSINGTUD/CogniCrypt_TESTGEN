@@ -1,4 +1,5 @@
 java.security.AlgorithmParameters
+java.security.AlgorithmParameterGenerator
 java.security.cert.PKIXBuilderParameters
 java.security.cert.PKIXParameters
 java.security.cert.TrustAnchor
@@ -29,7 +30,6 @@ javax.crypto.spec.IvParameterSpec
 javax.crypto.spec.OAEPParameterSpec
 javax.crypto.spec.PBEKeySpec
 javax.crypto.spec.PBEParameterSpec
-javax.crypto.spec.SecretKeySpec
 javax.net.ssl.CertPathTrustManagerParameters
 javax.net.ssl.KeyManagerFactory
 javax.net.ssl.KeyStoreBuilderParameters
