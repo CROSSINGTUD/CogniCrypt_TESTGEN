@@ -15,13 +15,13 @@ public class Activator extends AbstractUIPlugin {
 
 	// The shared instance
 	private static Activator plugin;
-	
+
 	/**
 	 * The constructor
 	 */
 	public Activator() {
 	}
-	
+
 	private void log(final int severity, final String message, final Exception ex) {
 		getLog().log(new Status(severity, Activator.PLUGIN_ID, message, ex));
 	}
