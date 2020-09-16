@@ -212,4 +212,8 @@ public class Utils extends de.cognicrypt.utils.Utils {
 		}
 		return false;
 	}
+	
+	public static File getResourceFromTestGen(final String inputPath) {
+		return getResourceFromWithin(inputPath, Activator.PLUGIN_ID);
+	}
 }
