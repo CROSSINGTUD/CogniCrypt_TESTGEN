@@ -10,12 +10,14 @@ import java.util.ArrayList;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
@@ -45,14 +47,14 @@ import crypto.rules.StateMachineGraph;
 import crypto.rules.StateNode;
 import crypto.rules.TransitionEdge;
 import de.cognicrypt.codegenerator.generator.RuleDependencyTree;
-import de.cognicrypt.codegenerator.generator.StateMachineGraphAnalyser;
+import de.cognicrypt.testgenerator.generator.StateMachineGraphAnalyser;
 import de.cognicrypt.testgenerator.Activator;
 import de.cognicrypt.testgenerator.test.TestClass;
 import de.cognicrypt.testgenerator.test.TestMethod;
 import de.cognicrypt.testgenerator.test.TestProject;
 import de.cognicrypt.testgenerator.utils.Constants;
+import de.cognicrypt.testgenerator.utils.CrySLUtils;
 import de.cognicrypt.testgenerator.utils.Utils;
-import de.cognicrypt.utils.CrySLUtils;
 
 public class TestGenerator {
 
@@ -65,9 +67,10 @@ public class TestGenerator {
 	
 	private List<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> predicateConnections = Lists.newArrayList();
 	private Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> toBeEnsuredPred = null;
+	private Entry<CrySLPredicate, Boolean> ensuredValues = null;
 	private static HashMap<String, String> parameterCache = Maps.newHashMap();
 	private static HashMap<String, String> ruleParameterCache = Maps.newHashMap();
-	private List<String> kills = Lists.newArrayList();
+	private Map<CrySLRule, List<String>> kills = Maps.newHashMap();
 	private Stack<String> instancesCache = new Stack<>();
 	
 	private static TestGenerator instance;
@@ -117,8 +120,6 @@ public class TestGenerator {
 				
 				// invalid test cases
 				generateInvalidTests(curRule, testClass);
-				
-				ruleIterator.remove();
 			}
 		}
 		writeToDisk(testClasses);
@@ -259,6 +260,16 @@ public class TestGenerator {
 			CrySLObject predParam = (CrySLObject) pred.getParameters().get(0);
 			String predParamType = predParam.getJavaType();
 			
+			if(pred instanceof CrySLCondPredicate) {
+				for(StateNode node : ((CrySLCondPredicate) pred).getConditionalMethods()) {
+					for(TransitionEdge edge : currentTransition) {
+						if(node.getName().equals(edge.getRight().getName())) {
+							ensuringPredicate.add(pred);
+						}
+					}
+				}
+			}
+			
 			currentTransition.stream().forEach(transition -> {
 				boolean match1 = transition.getLabel().get(0).getParameters().stream().anyMatch(param -> {
 					return param.getKey().equals(predParam.getName()) && (Utils.isSubType(param.getValue(), predParamType) || Utils.isSubType(predParamType, param.getValue()));
@@ -320,7 +331,7 @@ public class TestGenerator {
 			while (validTransitions.hasNext()) {
 				List<TransitionEdge> currentTransitions = validTransitions.next();
 				for (TransitionEdge transition : currentTransitions) {
-					Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(toBeEnsuredPred, transition.getLabel(), false);
+					Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(transition, false);
 					if(entry.getValue()) {
 						return currentTransitions;
 					}
@@ -406,6 +417,10 @@ public class TestGenerator {
 
 	private void generateAssertions(CrySLRule rule, TestMethod testMethod) {
 		generatePredicateAssertions(rule, testMethod);
+		List<String> killStmts = kills.get(rule);	
+		for (String stmt : killStmts) {
+			testMethod.addStatementToBody(stmt);
+		}
 		generateStateAssertions(rule, testMethod);
 		instancesCache.pop();
 	}
@@ -422,14 +437,13 @@ public class TestGenerator {
 	}
 
 	private void generatePredicateAssertions(CrySLRule rule, TestMethod testMethod) {
-		CrySLPredicate predicate = toBeEnsuredPred.getKey();
-		
-		if(predicate != null) {
+		if(ensuredValues != null) {
+			CrySLPredicate predicate = ensuredValues.getKey();
 			String param = predicate.getParameters().get(0).getName();
 			String simpleClassName = Utils.retrieveOnlyClassName(rule.getClassName());
 			String instanceName = retrieveInstanceName();
 			
-			if (testMethod.isValid()) {
+			if (ensuredValues.getValue()) {
 				if(param.equals("this"))
 					testMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + instanceName + ");");
 				else
@@ -485,24 +499,16 @@ public class TestGenerator {
 		List<String> methodInvocations = Lists.newArrayList();
 		List<String> localKillers = Lists.newArrayList();
 		boolean ensures = false;
+		boolean complete = isTransitionsComplete(rule, currentTransitions);
 
 		Set<Entry<String, String>> testMethodVariables = Sets.newHashSet();
-		Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre = null;
-		if(toBeEnsuredPred != null)
-			pre = new SimpleEntry<>(toBeEnsuredPred.getKey(), toBeEnsuredPred.getValue());
 
-		StringBuilder instanceName = new StringBuilder();
 		for (TransitionEdge transition : currentTransitions) {
-			List<CrySLMethod> labels = transition.getLabel();
-			CrySLMethod method = null;
-			if(isExplicit) {
-				method = labels.get(0);
-				ensures = true;
-			} else {
-				Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(pre, labels, ensures);
-				method = entry.getKey();
-				ensures = entry.getValue();
-			}
+
+			Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(transition, ensures);
+			CrySLMethod method = entry.getKey();
+			ensures = entry.getValue() && complete;
+
 			String methodName = method.getMethodName();
 			// NOTE stripping away the package and retaining only method name
 			methodName = methodName.substring(methodName.lastIndexOf(".") + 1);
@@ -531,15 +537,36 @@ public class TestGenerator {
 				}
 			}
 		}
-		
-		if (toBeEnsuredPred == null || ensures) {
-			kills.addAll(localKillers);
-			testMethod.addVariablesToBody(testMethodVariables);
-			return methodInvocations;
-		} else {
-			toBeEnsuredPred = pre;
-			return Lists.newArrayList();
+
+		ensuredValues = null;
+		if(toBeEnsuredPred.getKey() != null) {
+			ensuredValues = new SimpleEntry<>(toBeEnsuredPred.getKey(), ensures);
 		}
+
+		kills.put(rule, localKillers);
+		testMethod.addVariablesToBody(testMethodVariables);
+		return methodInvocations;
+	}
+
+	public boolean isTransitionsComplete(CrySLRule rule, List<TransitionEdge> currentTransitions) {
+		if(toBeEnsuredPred.getKey() == null)
+			return true;
+			
+		StateMachineGraphAnalyser smg = new StateMachineGraphAnalyser(rule.getUsagePattern());
+		ArrayList<List<TransitionEdge>> trans = null;
+		if(toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
+			Set<StateNode> nodes = ((CrySLCondPredicate) toBeEnsuredPred.getKey()).getConditionalMethods();
+			trans = smg.getTransitionsUpto(nodes.iterator().next());
+		}
+		else {
+			trans = smg.getTransitions();
+		}
+		for (List<TransitionEdge> t : trans) {
+			int index = Collections.indexOfSubList(currentTransitions, t);
+			if(index != -1)
+				return true;
+		}
+		return false;
 	}
 	
 	public Set<StateNode> extractKillStatements(CrySLRule rule) {
@@ -551,60 +578,54 @@ public class TestGenerator {
 		return killStatements;
 	}
 	
-	public Entry<CrySLMethod, Boolean> fetchEnsuringMethod(Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pre, List<CrySLMethod> labels, boolean ensures) {
-		CrySLMethod method = null;
-		for (CrySLMethod meth : labels) {
-			if (method != null) {
-				break;
-			} else {
-				toBeEnsuredPred = pre;
-			}
-
-			if (toBeEnsuredPred != null) {
-				//Predicate
-				method = fetchCorrespondingMethod(toBeEnsuredPred, meth, null);
-				if (method != null) {
-					ensures  = true;
-				}
-			}
-
-//			for (Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> usablePred : usablePreds.entrySet()) {
-//				if (method == null) {
-//					method = fetchCorrespondingMethod(usablePred, meth, null);
-//				} else {
-//					break;
-//				}
-//			}
-
+	public Entry<CrySLMethod, Boolean> fetchEnsuringMethod(TransitionEdge transition, boolean ensures) {
+		List<CrySLMethod> labels = transition.getLabel();
+		
+		if(toBeEnsuredPred.getKey() == null) {
+			ensures = true;
+			return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(labels.get(0), ensures);
 		}
-		// Determine method name and signature
-		if (method == null) {
+		
+		CrySLMethod method = fetchCorrespondingMethod(transition, null);
+		if (method != null) {
+			ensures  = true;
+		}
+		else {
 			method = labels.get(0);
 		}
 		return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(method, ensures);
 	}
 	
-	private CrySLMethod fetchCorrespondingMethod(Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> pred, CrySLMethod meth, Set<CrySLObject> set) {
-		CrySLObject objectOfPred = (CrySLObject) pred.getKey().getParameters().get(0);
+	private CrySLMethod fetchCorrespondingMethod(TransitionEdge transition, Set<CrySLObject> set) {
+		
+		if(toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
+			for(StateNode node : ((CrySLCondPredicate) toBeEnsuredPred.getKey()).getConditionalMethods()) {
+				if(node.getName().equals(transition.getRight().getName()))
+					return transition.getLabel().get(0);
+			}
+		}
+		
+		CrySLObject objectOfPred = (CrySLObject) toBeEnsuredPred.getKey().getParameters().get(0);
 		String predVarType = objectOfPred.getJavaType();
 		String predVarName = objectOfPred.getVarName();
 
-		//Method
-		Entry<String, String> retObject = meth.getRetObject();
-		String returnType = retObject.getValue();
-		String returnVarName = retObject.getKey();
+		for (CrySLMethod label : transition.getLabel()) {
+			//Method
+			Entry<String, String> retObject = label.getRetObject();
+			String returnType = retObject.getValue();
+			String returnVarName = retObject.getKey();
 
-		if (Utils.isSubType(predVarType, returnType) && returnVarName
-			.equals(predVarName) || (predVarName.equals("this") && meth.getMethodName().endsWith(predVarType.substring(predVarType.lastIndexOf('.') + 1))) 
-			|| (predVarName.equals("this") && meth.getMethodName().endsWith("getInstance"))) {
-			return meth;
-		}
-		for (Entry<String, String> par : meth.getParameters()) {
-			String parType = par.getValue();
-			String parVarName = par.getKey();
+			if (Utils.isSubType(predVarType, returnType) && returnVarName
+				.equals(predVarName) || (predVarName.equals("this") && label.getMethodName().endsWith(predVarType.substring(predVarType.lastIndexOf('.') + 1)))) {
+				return label;
+			}
+			for (Entry<String, String> par : label.getParameters()) {
+				String parType = par.getValue();
+				String parVarName = par.getKey();
 
-			if ((Utils.isSubType(predVarType, parType) || Utils.isSubType(parType, predVarType)) && (parVarName.equals(predVarName) || "this".equals(predVarName))) {
-				return meth;
+				if ((Utils.isSubType(predVarType, parType) || Utils.isSubType(parType, predVarType)) && (parVarName.equals(predVarName) || "this".equals(predVarName))) {
+					return label;
+				}
 			}
 		}
 		return null;
