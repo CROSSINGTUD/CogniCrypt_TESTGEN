@@ -216,4 +216,15 @@ public class Utils extends de.cognicrypt.utils.Utils {
 	public static File getResourceFromTestGen(final String inputPath) {
 		return getResourceFromWithin(inputPath, Activator.PLUGIN_ID);
 	}
+	
+	public static boolean matchMethodParameters(Class<?>[] methodParameters, Class<?>[] classes) {
+		for (int i = 0; i < methodParameters.length; i++) {
+			if (methodParameters[i].getName().equals("de.cognicrypt.testgenerator.utils.AnyType")) {
+				continue;
+			} else if (!methodParameters[i].equals(classes[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
 }
