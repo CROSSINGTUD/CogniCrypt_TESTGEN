@@ -143,12 +143,12 @@ public class FSMHandler {
 	static Entry<CrySLMethod, Boolean> fetchEnsuringMethod(TransitionEdge transition, boolean ensures) {
 		List<CrySLMethod> labels = transition.getLabel();
 		
-		if(TestGenerator.toBeEnsuredPred.getKey() == null) {
+		if(CacheManager.toBeEnsuredPred.getKey() == null) {
 			ensures = true;
 			return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(labels.get(0), ensures);
 		}
 		
-		CrySLMethod method = fetchCorrespondingMethod(transition, null);
+		CrySLMethod method = fetchCorrespondingMethod(transition);
 		if (method != null) {
 			ensures  = true;
 		}
@@ -158,16 +158,16 @@ public class FSMHandler {
 		return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(method, ensures);
 	}
 	
-	static CrySLMethod fetchCorrespondingMethod(TransitionEdge transition, Set<CrySLObject> set) {
+	static CrySLMethod fetchCorrespondingMethod(TransitionEdge transition) {
 		
-		if(TestGenerator.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
-			for(StateNode node : ((CrySLCondPredicate) TestGenerator.toBeEnsuredPred.getKey()).getConditionalMethods()) {
+		if(CacheManager.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
+			for(StateNode node : ((CrySLCondPredicate) CacheManager.toBeEnsuredPred.getKey()).getConditionalMethods()) {
 				if(node.getName().equals(transition.getRight().getName()))
 					return transition.getLabel().get(0);
 			}
 		}
 		
-		CrySLObject objectOfPred = (CrySLObject) TestGenerator.toBeEnsuredPred.getKey().getParameters().get(0);
+		CrySLObject objectOfPred = (CrySLObject) CacheManager.toBeEnsuredPred.getKey().getParameters().get(0);
 		String predVarType = objectOfPred.getJavaType();
 		String predVarName = objectOfPred.getVarName();
 

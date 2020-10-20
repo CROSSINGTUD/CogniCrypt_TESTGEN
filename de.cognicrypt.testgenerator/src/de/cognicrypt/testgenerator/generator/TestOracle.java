@@ -18,12 +18,12 @@ public class TestOracle {
 
 	public void generateAssertions() {
 		generatePredicateAssertions();
-		List<String> killStmts = TestGenerator.kills.get(rule);	
+		List<String> killStmts = CacheManager.kills.get(rule);	
 		for (String stmt : killStmts) {
 			testMethod.addStatementToBody(stmt);
 		}
 		generateStateAssertions();
-		TestGenerator.instancesCache.pop();
+		CacheManager.instancesCache.pop();
 	}
 
 	private void generateStateAssertions() {
@@ -38,13 +38,13 @@ public class TestOracle {
 	}
 	
 	private void generatePredicateAssertions() {
-		if(TestGenerator.ensuredValues != null) {
-			CrySLPredicate predicate = TestGenerator.ensuredValues.getKey();
+		if(CacheManager.ensuredValues != null) {
+			CrySLPredicate predicate = CacheManager.ensuredValues.getKey();
 			String param = predicate.getParameters().get(0).getName();
 //			String simpleClassName = Utils.retrieveOnlyClassName(rule.getClassName());
 			String instanceName = TestGenerator.retrieveInstanceName();
 			
-			if (TestGenerator.ensuredValues.getValue()) {
+			if (CacheManager.ensuredValues.getValue()) {
 				if(param.equals("this"))
 					testMethod.addStatementToBody("Assertions.hasEnsuredPredicate(" + instanceName + ");");
 				else

@@ -6,7 +6,6 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import crypto.interfaces.ICrySLPredicateParameter;
@@ -19,7 +18,6 @@ import crypto.rules.CrySLPredicate;
 import crypto.rules.CrySLRule;
 import crypto.rules.CrySLValueConstraint;
 import de.cognicrypt.testgenerator.test.TestClass;
-import de.cognicrypt.testgenerator.utils.Utils;
 
 public class ConstraintResolver {
 
@@ -38,7 +36,7 @@ public class ConstraintResolver {
 					value = "BigInteger.valueOf(" + value + ")";
 					testClass.addImport("java.math.BigInteger");
 				} else {
-					TestGenerator.ruleParameterCache.putIfAbsent(parameter.getKey(), value);
+					CacheManager.ruleParameterCache.putIfAbsent(parameter.getKey(), value);
 				}
 				return value;
 			}
@@ -56,14 +54,14 @@ public class ConstraintResolver {
 			CrySLValueConstraint asVC = (CrySLValueConstraint) constraint;
 			String constraintValue = asVC.getValueRange().get(0);
 			if (onlyEval) {
-				if (TestGenerator.ruleParameterCache.containsKey(parVarName) && asVC.getValueRange().contains(TestGenerator.ruleParameterCache.get(parVarName))) {
+				if (CacheManager.ruleParameterCache.containsKey(parVarName) && asVC.getValueRange().contains(CacheManager.ruleParameterCache.get(parVarName))) {
 					return constraintValue;
 				}
 			} else if (asVC.getInvolvedVarNames().contains(parVarName)) {
 				if ("transformation".equals(parVarName) && Arrays.asList(new String[] { "AES" }).contains(constraintValue)) {
 					constraintValue += dealWithCipherGetInstance(rule);
 				}
-				TestGenerator.ruleParameterCache.putIfAbsent(parVarName, constraintValue);
+				CacheManager.ruleParameterCache.putIfAbsent(parVarName, constraintValue);
 				return constraintValue;
 			}
 		} else if (constraint instanceof CrySLComparisonConstraint) {
@@ -113,7 +111,7 @@ public class ConstraintResolver {
 					default:
 						break;
 				}
-				TestGenerator.parameterCache.putIfAbsent(varName, secureInt);
+				CacheManager.parameterCache.putIfAbsent(varName, secureInt);
 				return secureInt;
 			}
 		} else if (constraint instanceof CrySLPredicate && "instanceOf".equals(((CrySLPredicate) constraint).getPredName())) {

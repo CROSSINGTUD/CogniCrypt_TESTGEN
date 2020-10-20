@@ -7,22 +7,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.core.runtime.CoreException;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import crypto.interfaces.ICrySLPredicateParameter;
@@ -48,14 +44,6 @@ public class TestGenerator {
 	private TestProject testProject;
 	private List<CrySLRule> rules;
 	private PredicateConnectionsHandler predicatesHandler;
-	private String genFolder;
-	
-	static Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> toBeEnsuredPred = null;
-	static Entry<CrySLPredicate, Boolean> ensuredValues = null;
-	static HashMap<String, String> parameterCache = Maps.newHashMap();
-	static HashMap<String, String> ruleParameterCache = Maps.newHashMap();
-	static Map<CrySLRule, List<String>> kills = Maps.newHashMap();
-	static Stack<String> instancesCache = new Stack<>();
 	
 	private static TestGenerator instance;
 
@@ -97,7 +85,7 @@ public class TestGenerator {
 				
 //				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
 
-				ruleParameterCache.clear();
+				CacheManager.ruleParameterCache.clear();
 				// valid test cases
 				generateValidTests(curRule, testClass);
 				
@@ -144,7 +132,7 @@ public class TestGenerator {
 		while(invalidTransitions.hasNext()) {
 			List<TransitionEdge> currentTransition = invalidTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(false);
-			instancesCache.clear();
+			CacheManager.instancesCache.clear();
 			generateTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
@@ -156,7 +144,7 @@ public class TestGenerator {
 		while(validTransitions.hasNext()) {
 			List<TransitionEdge> currentTransition = validTransitions.next();
 			TestMethod testMethod = testClass.addTestMethod(true);
-			instancesCache.clear();
+			CacheManager.instancesCache.clear();
 			generateTest(curRule, testClass, currentTransition, testMethod, true);
 		}
 	}
@@ -223,7 +211,7 @@ public class TestGenerator {
 
 //		if(toBeEnsuredPred == null)
 //			determineEnsurePreds(curRule);
-		toBeEnsuredPred = new SimpleEntry(findEnsuringPredicate(curRule, currentTransition), new SimpleEntry(curRule, null));
+		CacheManager.toBeEnsuredPred = new SimpleEntry(findEnsuringPredicate(curRule, currentTransition), new SimpleEntry(curRule, null));
 		List<String> methodInvocations = generateMethodInvocations(curRule, testMethod, testClass, currentTransition, isImplicit);
 		if (methodInvocations.isEmpty()) {
 			return;
@@ -291,24 +279,24 @@ public class TestGenerator {
 			}
 		}
 
-		ensuredValues = null;
-		if(toBeEnsuredPred.getKey() != null) {
-			ensuredValues = new SimpleEntry<>(toBeEnsuredPred.getKey(), ensures);
+		CacheManager.ensuredValues = null;
+		if(CacheManager.toBeEnsuredPred.getKey() != null) {
+			CacheManager.ensuredValues = new SimpleEntry<>(CacheManager.toBeEnsuredPred.getKey(), ensures);
 		}
 
-		kills.put(rule, localKillers);
+		CacheManager.kills.put(rule, localKillers);
 		testMethod.addVariablesToBody(testMethodVariables);
 		return methodInvocations;
 	}
 
 	public boolean isTransitionsComplete(CrySLRule rule, List<TransitionEdge> currentTransitions) {
-		if(toBeEnsuredPred.getKey() == null)
+		if(CacheManager.toBeEnsuredPred.getKey() == null)
 			return true;
 			
 		StateMachineGraphAnalyser smg = new StateMachineGraphAnalyser(rule.getUsagePattern());
 		ArrayList<List<TransitionEdge>> trans = null;
-		if(toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
-			Set<StateNode> nodes = ((CrySLCondPredicate) toBeEnsuredPred.getKey()).getConditionalMethods();
+		if(CacheManager.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
+			Set<StateNode> nodes = ((CrySLCondPredicate) CacheManager.toBeEnsuredPred.getKey()).getConditionalMethods();
 			trans = smg.getTransitionsUpto(nodes.iterator().next());
 		}
 		else {
@@ -442,7 +430,7 @@ public class TestGenerator {
 					} else {
 						methodInvocation = returnValueType + " " + returnValueName + " = " + instanceName + "." + currentInvokedMethod;
 					}
-					if(toBeEnsuredPred.getKey().getParameters().get(0).getName().equals(method.getRetObject().getKey())) {
+					if(CacheManager.toBeEnsuredPred.getKey().getParameters().get(0).getName().equals(method.getRetObject().getKey())) {
 						updateToBeEnsured( new SimpleEntry<String, String>(returnValueName, returnValueType));
 					}
 				} else {
@@ -457,24 +445,24 @@ public class TestGenerator {
 	}
 
 	static String retrieveInstanceName() {
-		return instancesCache.peek();
+		return CacheManager.instancesCache.peek();
 	}
 
 	private String composeInstanceName(String simpleClassName) {
 		int suffix = 0;
 		String prefixName = Character.toLowerCase(simpleClassName.charAt(0)) + simpleClassName.substring(1);
 		String name = prefixName + suffix;
-		while(instancesCache.contains(name)) {
+		while(CacheManager.instancesCache.contains(name)) {
 			suffix++;
 			name = prefixName + suffix;
 		}
-		instancesCache.push(name);
+		CacheManager.instancesCache.push(name);
 		return name;
 	}
 
 	public void updateToBeEnsured(Entry<String, String> entry) {
-		if (toBeEnsuredPred != null) {
-			CrySLPredicate existing = toBeEnsuredPred.getKey();
+		if (CacheManager.toBeEnsuredPred != null) {
+			CrySLPredicate existing = CacheManager.toBeEnsuredPred.getKey();
 			CrySLObject predicatePar = (CrySLObject) existing.getParameters().get(0);
 
 			if (!"this".equals(predicatePar.getVarName())) {
@@ -486,8 +474,8 @@ public class TestGenerator {
 					}
 				}
 				if (!parameters.isEmpty()) {
-					toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(new CrySLPredicate(existing.getBaseObject(), existing
-						.getPredName(), parameters, existing.isNegated(), existing.getConstraint()), toBeEnsuredPred.getValue());
+					CacheManager.toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(new CrySLPredicate(existing.getBaseObject(), existing
+						.getPredName(), parameters, existing.isNegated(), existing.getConstraint()), CacheManager.toBeEnsuredPred.getValue());
 				}
 			}
 

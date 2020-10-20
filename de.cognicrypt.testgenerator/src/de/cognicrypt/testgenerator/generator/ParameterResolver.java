@@ -79,8 +79,8 @@ public class ParameterResolver {
 						continue;
 					}
 
-					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> temp = TestGenerator.toBeEnsuredPred; 
-					TestGenerator.toBeEnsuredPred = producer.get();
+					Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> temp = CacheManager.toBeEnsuredPred; 
+					CacheManager.toBeEnsuredPred = producer.get();
 					final CrySLRule producerRule = (CrySLRule) producer.get().getValue().getKey();
 					FSMHandler fsmHandler = new FSMHandler(producerRule.getUsagePattern());
 					List<TransitionEdge> validTransitions = fsmHandler.getValidTransitionFromStateMachine();
@@ -92,7 +92,7 @@ public class ParameterResolver {
 					} else {
 						testGenerator.generateTest(producerRule, testClass, validTransitions, testMethod, false);
 					}
-					TestGenerator.toBeEnsuredPred = temp;
+					CacheManager.toBeEnsuredPred = temp;
 
 					Optional<Entry<String, String>> postMatch = declaredVariables.stream()
 							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
