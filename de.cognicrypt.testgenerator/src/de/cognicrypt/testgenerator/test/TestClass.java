@@ -17,8 +17,10 @@ public class TestClass extends GeneratorClass {
 	private int numberOfInvalidTestCases;
 	
 	public TestClass(String name) {
-		className = name;
+		packageName = "jca";
 		imports = Sets.newHashSet(Constants.TEST_IMPORTS);
+		modifier = "public";
+		className = name;
 		methods = overriddenMethods();
 	}
 

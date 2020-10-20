@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.eclipse.core.resources.IFile;
@@ -31,6 +32,7 @@ import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.ide.IDE;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import de.cognicrypt.core.Constants;
 import de.cognicrypt.testgenerator.Activator;
@@ -44,6 +46,16 @@ public class TestProject {
 
 	private IJavaProject jProject;
 	private DeveloperProject dProject;
+	private Set<TestClass> testClasses = Sets.newHashSet();
+	
+	public void addTestClass(TestClass testClass) {
+		this.testClasses.add(testClass);
+	}
+	
+	public Set<TestClass> getTestClasses() {
+		return testClasses;
+	}
+
 	public TestProject(String name) {
 		try {
 			jProject = createJavaProject(name);
@@ -215,5 +227,17 @@ public class TestProject {
 			e.printStackTrace();
 		}
 		return null;
+	}
+	
+	public int numberOfTestMethods() {
+		int total = 0;
+		for (TestClass testClass : testClasses) {
+			total += testClass.getMethods().stream().filter(m -> m instanceof TestMethod).count();
+		}
+		return total;
+	}
+
+	public int numberOfTestClasses() {
+		return testClasses.size();
 	}
 }

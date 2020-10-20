@@ -6,26 +6,15 @@ import java.util.Set;
 
 import de.cognicrypt.core.Constants;
 import de.cognicrypt.testgenerator.test.TestClass;
+import de.cognicrypt.testgenerator.test.TestProject;
 
 public class CodeHandler {
-	
-	private Set<TestClass> testClasses;
 
-	/**
-	 * constructor
-	 * 
-	 * @param classes
-	 *        Array of file objects that include java code
-	 */
-	public CodeHandler(Set<TestClass> classes) {
-		testClasses = classes;
-	}
+	public File writeToDisk(TestProject testProject) throws Exception {
 
-	public File writeToDisk(final String folderPath) throws Exception {
-
-		File fileOnDisk = new File(folderPath);
+		File fileOnDisk = new File(testProject.getProjectPath() + Constants.innerFileSeparator + testProject.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator);
 		fileOnDisk.mkdirs();
-		for (TestClass toBeGeneratedClass : testClasses) {
+		for (TestClass toBeGeneratedClass : testProject.getTestClasses()) {
 			String path = fileOnDisk.getAbsolutePath() + Constants.outerFileSeparator + toBeGeneratedClass.getClassName() + ".java";
 			try (FileOutputStream fileOutputStream = new FileOutputStream(path)) {
 				fileOutputStream.write(toBeGeneratedClass.toString().getBytes("UTF-8"));
