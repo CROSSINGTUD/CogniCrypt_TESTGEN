@@ -6,6 +6,7 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import crypto.interfaces.ICrySLPredicateParameter;
@@ -18,15 +19,16 @@ import crypto.rules.CrySLPredicate;
 import crypto.rules.CrySLRule;
 import crypto.rules.CrySLValueConstraint;
 import de.cognicrypt.testgenerator.test.TestClass;
+import de.cognicrypt.testgenerator.utils.Utils;
 
 public class ConstraintResolver {
-	
-	public String analyseConstraints(Entry<String, String> parameter, CrySLRule rule, TestClass testClass, String methodName) {
+
+	public String analyseConstraints(Entry<String, String> parameter, CrySLRule rule, TestClass testClass) {
 		List<ISLConstraint> constraints = rule.getConstraints().stream().filter(e -> e.getInvolvedVarNames().contains(parameter.getKey())).collect(Collectors.toList());
 		
 		for (ISLConstraint constraint : constraints) {
 			// handle CrySLValueConstraint
-			String value = resolveCrySLConstraint(rule, parameter, constraint, methodName);
+			String value = resolveCrySLConstraint(rule, parameter, constraint);
 			if (!value.isEmpty()) {
 				if ("java.lang.String".equals(parameter.getValue())) {
 					value = "\"" + value + "\"";
@@ -44,11 +46,11 @@ public class ConstraintResolver {
 		return "";
 	}
 
-	private String resolveCrySLConstraint(CrySLRule rule, Entry<String, String> parameter, ISLConstraint constraint, String methodName) {
-		return resolveCrySLConstraint(rule, parameter, constraint, methodName, false);
+	private String resolveCrySLConstraint(CrySLRule rule, Entry<String, String> parameter, ISLConstraint constraint) {
+		return resolveCrySLConstraint(rule, parameter, constraint, false);
 	}
 	
-	private String resolveCrySLConstraint(CrySLRule rule, Entry<String, String> parameter, ISLConstraint constraint, String methodName, boolean onlyEval) {
+	private String resolveCrySLConstraint(CrySLRule rule, Entry<String, String> parameter, ISLConstraint constraint, boolean onlyEval) {
 		String parVarName = parameter.getKey();
 		if (constraint instanceof CrySLValueConstraint) {
 			CrySLValueConstraint asVC = (CrySLValueConstraint) constraint;
@@ -129,48 +131,48 @@ public class ConstraintResolver {
 			if (operator == LogOps.and) {
 				if (left.getInvolvedVarNames().contains(parVarName)) {
 					if (!right.getInvolvedVarNames().contains(parVarName)) {
-						if (!resolveCrySLConstraint(rule, parameter, right, methodName, true).isEmpty()) {
-							return resolveCrySLConstraint(rule, parameter, left, methodName);
+						if (!resolveCrySLConstraint(rule, parameter, right, true).isEmpty()) {
+							return resolveCrySLConstraint(rule, parameter, left);
 						} else {
 							return "";
 						}
 					} else {
-						if (resolveCrySLConstraint(rule, parameter, left, methodName, true).isEmpty()) {
-							return resolveCrySLConstraint(rule, parameter, right, methodName);
+						if (resolveCrySLConstraint(rule, parameter, left, true).isEmpty()) {
+							return resolveCrySLConstraint(rule, parameter, right);
 						} else {
-							return resolveCrySLConstraint(rule, parameter, left, methodName);
+							return resolveCrySLConstraint(rule, parameter, left);
 						}
 					}
-				} else if (!resolveCrySLConstraint(rule, parameter, left, methodName).isEmpty()) {
-					return resolveCrySLConstraint(rule, parameter, right, methodName);
+				} else if (!resolveCrySLConstraint(rule, parameter, left).isEmpty()) {
+					return resolveCrySLConstraint(rule, parameter, right);
 				}
 				return "";
 			} else if (operator == LogOps.or) {
 				if (!onlyEval) {
 					if (left.getInvolvedVarNames().contains(parVarName)) {
-						if (resolveCrySLConstraint(rule, parameter, left, methodName).isEmpty()) {
-							if (right.getInvolvedVarNames().contains(parVarName) && !resolveCrySLConstraint(rule, parameter, right, methodName, true).isEmpty()) {
-								return resolveCrySLConstraint(rule, parameter, right, methodName);
+						if (resolveCrySLConstraint(rule, parameter, left).isEmpty()) {
+							if (right.getInvolvedVarNames().contains(parVarName) && !resolveCrySLConstraint(rule, parameter, right, true).isEmpty()) {
+								return resolveCrySLConstraint(rule, parameter, right);
 							} else {
 								return "";
 							}
 						}
-						return resolveCrySLConstraint(rule, parameter, left, methodName);
+						return resolveCrySLConstraint(rule, parameter, left);
 					}
-					return resolveCrySLConstraint(rule, parameter, right, methodName);
+					return resolveCrySLConstraint(rule, parameter, right);
 				} else {
-					String leftResult = resolveCrySLConstraint(rule, parameter, left, methodName, onlyEval);
+					String leftResult = resolveCrySLConstraint(rule, parameter, left, onlyEval);
 					if (!leftResult.isEmpty()) {
 						return leftResult;
 					} else {
-						return resolveCrySLConstraint(rule, rightAlternative, right, methodName, onlyEval);
+						return resolveCrySLConstraint(rule, rightAlternative, right, onlyEval);
 					}
 				}
 			} else if (operator == LogOps.implies) {
-				if (!right.getInvolvedVarNames().contains(parVarName) || resolveCrySLConstraint(rule, leftAlternative, left, methodName, true).isEmpty()) {
+				if (!right.getInvolvedVarNames().contains(parVarName) || resolveCrySLConstraint(rule, leftAlternative, left, true).isEmpty()) {
 					return "";
 				}
-				return resolveCrySLConstraint(rule, parameter, right, methodName);
+				return resolveCrySLConstraint(rule, parameter, right);
 			} else {
 				return ""; // invalid operator
 			}
