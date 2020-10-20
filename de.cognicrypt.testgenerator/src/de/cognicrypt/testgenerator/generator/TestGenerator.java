@@ -49,11 +49,15 @@ public class TestGenerator {
 
 	private TestGenerator() {
 		LOGGER.setLevel(Level.INFO);
-		testProject = new TestProject(Constants.PROJECT_NAME);
-		genFolder = testProject.getProjectPath() + Constants.innerFileSeparator + testProject.getSourcePath() + Constants.innerFileSeparator + "jca" + Constants.innerFileSeparator;
 		LOGGER.info("Reading ruleset.");
 		rules = CrySLUtils.readCrySLRules();
 		LOGGER.info("Finished reading ruleset.");
+		if(!rules.isEmpty()) {
+			testProject = new TestProject(Constants.PROJECT_NAME);
+		} else {
+			LOGGER.info("No rules detected.");
+			return;
+		}
 		predicatesHandler = new PredicateConnectionsHandler(rules);
 //		predicatesHandler.printPredicateConnections();
 	}
@@ -68,7 +72,6 @@ public class TestGenerator {
 	public void generateTests() {
 		
 		List<String> selectedRules = Utils.getSelectedRules(); 
-		Set<TestClass> testClasses = Sets.newHashSet();
 		
 		Iterator<CrySLRule> ruleIterator = rules.iterator();
 		while (ruleIterator.hasNext()) {
@@ -76,12 +79,9 @@ public class TestGenerator {
 //			if(curRule.getClassName().equals("java.security.SecureRandom")) {
 			if(selectedRules.contains(curRule.getClassName())) {
 				LOGGER.info("Creating tests for " + curRule.getClassName());
-				String className = Utils.retrieveOnlyClassName(curRule.getClassName());
-				
-				TestClass testClass = new TestClass(className);
-				testClass.setPackageName("jca");
-				testClass.setModifier("public");
-				testClasses.add(testClass);
+				String simpleClassName = Utils.retrieveOnlyClassName(curRule.getClassName());
+				TestClass testClass = new TestClass(simpleClassName);
+				testProject.addTestClass(testClass);
 				
 //				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
 
@@ -93,24 +93,16 @@ public class TestGenerator {
 				generateInvalidTests(curRule, testClass);
 			}
 		}
-		writeToDisk(testClasses);
+		writeToDisk(testProject);
 		cleanProject();
-		LOGGER.info("Total rules covered : " + testClasses.size());
-		LOGGER.info("Total test cases generated : " + calculateTotalTests(testClasses));
+		LOGGER.info("Total rules covered : " + testProject.numberOfTestClasses());
+		LOGGER.info("Total test cases generated : " + testProject.numberOfTestMethods());
 	}
 
-	private int calculateTotalTests(Set<TestClass> testClasses) {
-		int total = 0;
-		for (TestClass testClass : testClasses) {
-			total += testClass.getMethods().stream().filter(m -> m instanceof TestMethod).count();
-		}
-		return total;
-	}
-
-	private void writeToDisk(Set<TestClass> testClasses) {
-		CodeHandler codeHandler = new CodeHandler(testClasses);
+	private void writeToDisk(TestProject testProject) {
+		CodeHandler codeHandler = new CodeHandler();
 		try {
-			codeHandler.writeToDisk(genFolder);
+			codeHandler.writeToDisk(testProject);
 		} catch (Exception e) {
 			Activator.getDefault().logError(e, "Failed to write to disk.");
 		}
@@ -161,8 +153,6 @@ public class TestGenerator {
 		List<CrySLPredicate> ensuringPredicate = Lists.newArrayList();
 		
 		for (CrySLPredicate pred : curRule.getPredicates()) {
-			CrySLObject predParam = (CrySLObject) pred.getParameters().get(0);
-			String predParamType = predParam.getJavaType();
 			
 			if(pred instanceof CrySLCondPredicate) {
 				for(StateNode node : ((CrySLCondPredicate) pred).getConditionalMethods()) {
@@ -173,6 +163,9 @@ public class TestGenerator {
 					}
 				}
 			}
+			
+			CrySLObject predParam = (CrySLObject) pred.getParameters().get(0);
+			String predParamType = predParam.getJavaType();
 			
 			currentTransition.stream().forEach(transition -> {
 				boolean match1 = transition.getLabel().get(0).getParameters().stream().anyMatch(param -> {
