@@ -35,8 +35,6 @@ public class ConstraintResolver {
 				} else if ("java.math.BigInteger".equals(parameter.getValue())) {
 					value = "BigInteger.valueOf(" + value + ")";
 					testClass.addImport("java.math.BigInteger");
-				} else {
-					CacheManager.ruleParameterCache.putIfAbsent(parameter.getKey(), value);
 				}
 				return value;
 			}
@@ -53,17 +51,12 @@ public class ConstraintResolver {
 		if (constraint instanceof CrySLValueConstraint) {
 			CrySLValueConstraint asVC = (CrySLValueConstraint) constraint;
 			String constraintValue = asVC.getValueRange().get(0);
-			if (onlyEval) {
-				if (CacheManager.ruleParameterCache.containsKey(parVarName) && asVC.getValueRange().contains(CacheManager.ruleParameterCache.get(parVarName))) {
-					return constraintValue;
-				}
-			} else if (asVC.getInvolvedVarNames().contains(parVarName)) {
+			if (asVC.getInvolvedVarNames().contains(parVarName)) {
 				if ("transformation".equals(parVarName) && Arrays.asList(new String[] { "AES" }).contains(constraintValue)) {
 					constraintValue += dealWithCipherGetInstance(rule);
 				}
-				CacheManager.ruleParameterCache.putIfAbsent(parVarName, constraintValue);
-				return constraintValue;
 			}
+			return constraintValue;
 		} else if (constraint instanceof CrySLComparisonConstraint) {
 			CrySLComparisonConstraint comp = (CrySLComparisonConstraint) constraint;
 			if (comp.getLeft().getLeft() instanceof CrySLObject && comp.getRight().getLeft() instanceof CrySLObject) {
@@ -111,11 +104,11 @@ public class ConstraintResolver {
 					default:
 						break;
 				}
-				CacheManager.parameterCache.putIfAbsent(varName, secureInt);
 				return secureInt;
 			}
 		} else if (constraint instanceof CrySLPredicate && "instanceOf".equals(((CrySLPredicate) constraint).getPredName())) {
 			List<ICrySLPredicateParameter> instanceOfPred = ((CrySLPredicate) constraint).getParameters();
+			// FIXME During test generation of Cipher object, the type of key is unknown
 			return ((CrySLObject) instanceOfPred.get(0)).getVarName();
 		} else if (constraint instanceof CrySLConstraint) {
 

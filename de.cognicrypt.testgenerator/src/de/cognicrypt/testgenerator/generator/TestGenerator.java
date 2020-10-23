@@ -86,7 +86,6 @@ public class TestGenerator {
 				
 //				Map<String, List<CrySLPredicate>> reliablePreds = Maps.newHashMap();
 
-				CacheManager.ruleParameterCache.clear();
 				// valid test cases
 				generateValidTests(curRule, testClass);
 				
