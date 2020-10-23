@@ -2,22 +2,26 @@ package de.cognicrypt.testgenerator.generator;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Random;
+import java.util.Set;
 
 import com.google.common.collect.Lists;
 
 import crypto.rules.CrySLCondPredicate;
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLObject;
+import crypto.rules.CrySLRule;
 import crypto.rules.StateMachineGraph;
 import crypto.rules.StateNode;
 import crypto.rules.TransitionEdge;
 import de.cognicrypt.testgenerator.Activator;
+import de.cognicrypt.testgenerator.generator.TestGenerator.MODE;
 import de.cognicrypt.testgenerator.utils.Utils;
 
 public class FSMHandler {
@@ -191,5 +195,26 @@ public class FSMHandler {
 			}
 		}
 		return null;
+	}
+	
+	public static boolean isTransitionsComplete(CrySLRule rule, List<TransitionEdge> currentTransitions) {
+		if(CacheManager.toBeEnsuredPred.getKey() == null)
+			return true;
+			
+		StateMachineGraphAnalyser smg = new StateMachineGraphAnalyser(rule.getUsagePattern());
+		ArrayList<List<TransitionEdge>> trans = null;
+		if(CacheManager.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
+			Set<StateNode> nodes = ((CrySLCondPredicate) CacheManager.toBeEnsuredPred.getKey()).getConditionalMethods();
+			trans = smg.getTransitionsUpto(nodes.iterator().next());
+		}
+		else {
+			trans = smg.getTransitions();
+		}
+		for (List<TransitionEdge> t : trans) {
+			int index = Collections.indexOfSubList(currentTransitions, t);
+			if(index != -1)
+				return true;
+		}
+		return false;
 	}
 }

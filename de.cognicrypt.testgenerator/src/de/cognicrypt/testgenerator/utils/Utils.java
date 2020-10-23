@@ -5,7 +5,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -14,6 +17,7 @@ import java.util.logging.Logger;
 
 import com.google.common.base.Defaults;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLRule;
@@ -226,5 +230,37 @@ public class Utils extends de.cognicrypt.utils.Utils {
 			}
 		}
 		return true;
+	}
+	
+	public static Set<String> determineThrownExceptions(CrySLMethod method) throws SecurityException, ClassNotFoundException {
+		Set<Class<?>> exceptionClasses = Sets.newHashSet();
+		Set<String> exceptions = Sets.newHashSet();
+		Class<?>[] methodParameters = Utils.collectParameterTypes(method.getParameters());
+		String className = method.getMethodName().substring(0, method.getMethodName().lastIndexOf("."));
+		Method[] methods = Class.forName(className).getMethods();
+		String methodName = method.getShortMethodName();
+		for (Method meth : methods) {
+			if (meth.getExceptionTypes().length > 0 && meth.getName().equals(methodName) && methodParameters.length == meth.getParameterCount()) {
+				if (Utils.matchMethodParameters(methodParameters, meth.getParameterTypes())) {
+					exceptionClasses.addAll(Arrays.asList(meth.getExceptionTypes()));
+				}
+			}
+		}
+		
+		Constructor[] constructors = Class.forName(className).getConstructors();
+		for (Constructor cons: constructors) {
+			String fullyQualifiedName = cons.getName();
+			String consName = Utils.retrieveOnlyClassName(fullyQualifiedName);
+			if (cons.getExceptionTypes().length > 0 && consName.equals(methodName) && methodParameters.length == cons.getParameterCount()) {
+				if (Utils.matchMethodParameters(methodParameters, cons.getParameterTypes())) {
+					exceptionClasses.addAll((Collection<? extends Class<?>>) Arrays.asList(cons.getExceptionTypes()));
+				}
+			}
+		}
+
+		for (Class<?> exception : exceptionClasses) {
+			exceptions.add(exception.getName());
+		}
+		return exceptions;
 	}
 }

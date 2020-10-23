@@ -281,37 +281,6 @@ public class TestGenerator {
 		testMethod.addVariablesToBody(testMethodVariables);
 		return methodInvocations;
 	}
-
-	public boolean isTransitionsComplete(CrySLRule rule, List<TransitionEdge> currentTransitions) {
-		if(CacheManager.toBeEnsuredPred.getKey() == null)
-			return true;
-			
-		StateMachineGraphAnalyser smg = new StateMachineGraphAnalyser(rule.getUsagePattern());
-		ArrayList<List<TransitionEdge>> trans = null;
-		if(CacheManager.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
-			Set<StateNode> nodes = ((CrySLCondPredicate) CacheManager.toBeEnsuredPred.getKey()).getConditionalMethods();
-			trans = smg.getTransitionsUpto(nodes.iterator().next());
-		}
-		else {
-			trans = smg.getTransitions();
-		}
-		for (List<TransitionEdge> t : trans) {
-			int index = Collections.indexOfSubList(currentTransitions, t);
-			if(index != -1)
-				return true;
-		}
-		return false;
-	}
-	
-	public Set<StateNode> extractKillStatements(CrySLRule rule) {
-		Set<StateNode> killStatements = rule.getPredicates().stream().filter(pred -> pred.isNegated() && pred instanceof CrySLCondPredicate)
-			.map(e -> ((CrySLCondPredicate) e).getConditionalMethods()).reduce(new HashSet<>(), (a, b) -> {
-				a.addAll(b);
-				return a;
-			});
-		return killStatements;
-	}
-	
 	
 	
 //	public String getLastInvokedMethodName(List<TransitionEdge> transitions) {
@@ -351,38 +320,6 @@ public class TestGenerator {
 
 		sourceLineGenerator.append(");");
 		return sourceLineGenerator;
-	}
-	
-	public Set<String> determineThrownExceptions(CrySLMethod method) throws SecurityException, ClassNotFoundException {
-		Set<Class<?>> exceptionClasses = Sets.newHashSet();
-		Set<String> exceptions = Sets.newHashSet();
-		Class<?>[] methodParameters = Utils.collectParameterTypes(method.getParameters());
-		String className = method.getMethodName().substring(0, method.getMethodName().lastIndexOf("."));
-		Method[] methods = Class.forName(className).getMethods();
-		String methodName = method.getShortMethodName();
-		for (Method meth : methods) {
-			if (meth.getExceptionTypes().length > 0 && meth.getName().equals(methodName) && methodParameters.length == meth.getParameterCount()) {
-				if (Utils.matchMethodParameters(methodParameters, meth.getParameterTypes())) {
-					exceptionClasses.addAll(Arrays.asList(meth.getExceptionTypes()));
-				}
-			}
-		}
-		
-		Constructor[] constructors = Class.forName(className).getConstructors();
-		for (Constructor cons: constructors) {
-			String fullyQualifiedName = cons.getName();
-			String consName = Utils.retrieveOnlyClassName(fullyQualifiedName);
-			if (cons.getExceptionTypes().length > 0 && consName.equals(methodName) && methodParameters.length == cons.getParameterCount()) {
-				if (Utils.matchMethodParameters(methodParameters, cons.getParameterTypes())) {
-					exceptionClasses.addAll((Collection<? extends Class<?>>) Arrays.asList(cons.getExceptionTypes()));
-				}
-			}
-		}
-
-		for (Class<?> exception : exceptionClasses) {
-			exceptions.add(exception.getName());
-		}
-		return exceptions;
 	}
 	
 	private Entry<String, List<Entry<String, String>>> generateMethodInvocation(TestMethod testMethod,
