@@ -4,6 +4,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map.Entry;
@@ -72,6 +73,7 @@ public class ParameterResolver {
 
 				if(producer.isPresent()) {
 
+					Collections.reverse(declaredVariables);
 					Optional<Entry<String, String>> preMatch = declaredVariables.stream()
 							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
 					if (preMatch.isPresent()) {
@@ -94,6 +96,7 @@ public class ParameterResolver {
 					}
 					CacheManager.toBeEnsuredPred = temp;
 
+					Collections.reverse(declaredVariables);
 					Optional<Entry<String, String>> postMatch = declaredVariables.stream()
 							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
 					if (postMatch.isPresent()) {
