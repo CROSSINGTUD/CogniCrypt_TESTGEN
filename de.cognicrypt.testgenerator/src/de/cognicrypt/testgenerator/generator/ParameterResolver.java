@@ -85,7 +85,7 @@ public class ParameterResolver {
 					CacheManager.toBeEnsuredPred = producer.get();
 					final CrySLRule producerRule = (CrySLRule) producer.get().getValue().getKey();
 					FSMHandler fsmHandler = new FSMHandler(producerRule.getUsagePattern());
-					List<TransitionEdge> validTransitions = fsmHandler.getValidTransitionFromStateMachine();
+					List<TransitionEdge> validTransitions = fsmHandler.getValidTransitionFromStateMachine(false);
 					if(!testMethod.isValid()) {
 						// even for invalid tests the method invocations are generated correctly for implicit rules
 						testMethod.setValid(true);

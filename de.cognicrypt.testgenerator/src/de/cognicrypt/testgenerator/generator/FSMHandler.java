@@ -41,13 +41,13 @@ public class FSMHandler {
 		return null;
 	}
 	
-	public List<TransitionEdge> getValidTransitionFromStateMachine() {
+	public List<TransitionEdge> getValidTransitionFromStateMachine(boolean isExplicit) {
 		try {
 			Iterator<List<TransitionEdge>> validTransitions = getTransitionsFromStateMachine();
 			while (validTransitions.hasNext()) {
 				List<TransitionEdge> currentTransitions = validTransitions.next();
 				for (TransitionEdge transition : currentTransitions) {
-					Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(transition, false);
+					Entry<CrySLMethod, Boolean> entry = fetchEnsuringMethod(transition, false, isExplicit);
 					if(entry.getValue()) {
 						return currentTransitions;
 					}
@@ -135,6 +135,7 @@ public class FSMHandler {
 			Iterator<TransitionEdge> t = transition.iterator();
 			while (t.hasNext()) {
 				TransitionEdge edge = t.next();
+				// FIXME figure out a way to determine whether next state is optional
 				if (edge.getRight().getAccepting())
 					break;
 				temp.add(edge);
@@ -144,30 +145,53 @@ public class FSMHandler {
 		}
 	}
 	
-	static Entry<CrySLMethod, Boolean> fetchEnsuringMethod(TransitionEdge transition, boolean ensures) {
-		List<CrySLMethod> labels = transition.getLabel();
+	static Entry<CrySLMethod, Boolean> fetchEnsuringMethod(TransitionEdge edge, boolean ensures, boolean isExplicit) {
 		
 		if(CacheManager.toBeEnsuredPred.getKey() == null) {
 			ensures = true;
-			return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(labels.get(0), ensures);
-		}
+			return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(selectMethodBasedOnStrategy(edge, isExplicit), ensures);
+		}	
 		
-		CrySLMethod method = fetchCorrespondingMethod(transition);
+		CrySLMethod method = fetchCorrespondingMethod(edge, isExplicit);
 		if (method != null) {
 			ensures  = true;
 		}
 		else {
-			method = labels.get(0);
+				method = selectMethodBasedOnStrategy(edge, isExplicit);
 		}
 		return new AbstractMap.SimpleEntry<CrySLMethod, Boolean>(method, ensures);
 	}
+
+	public static CrySLMethod selectMethodBasedOnStrategy(TransitionEdge edge, boolean isExplicit) {
+		List<CrySLMethod> labels = edge.getLabel();
+		CrySLMethod method = null;
+		
+		if(isExplicit) {
+			// apply test generation strategies only for explicit rules
+			if(TestGenerator.STRATEGY == MODE.IS_SELECT_FIRST) {
+				method = labels.get(0);
+			} else if(TestGenerator.STRATEGY == MODE.IS_SELECT_RANDOM) {
+				int limit = edge.getLabel().size();
+				Random random = new Random();
+				method = labels.get(random.nextInt(limit));
+			} else if(TestGenerator.STRATEGY == MODE.IS_SELECT_ALL) {
+				if(labels.contains(TestGenerator.selectedMethod))
+					method = TestGenerator.selectedMethod;
+				else
+					method = labels.get(0);
+			}
+		} else {
+			method = labels.get(0);
+		}
+		return method;
+	}
 	
-	static CrySLMethod fetchCorrespondingMethod(TransitionEdge transition) {
+	static CrySLMethod fetchCorrespondingMethod(TransitionEdge transition, boolean isExplicit) {
 		
 		if(CacheManager.toBeEnsuredPred.getKey() instanceof CrySLCondPredicate) {
 			for(StateNode node : ((CrySLCondPredicate) CacheManager.toBeEnsuredPred.getKey()).getConditionalMethods()) {
 				if(node.getName().equals(transition.getRight().getName()))
-					return transition.getLabel().get(0);
+					return FSMHandler.selectMethodBasedOnStrategy(transition, isExplicit);
 			}
 		}
 		
