@@ -206,7 +206,9 @@ public class Utils extends de.cognicrypt.utils.Utils {
 		for (List<TransitionEdge> transition : resultantList) {
 			int length = 0;
 			for (TransitionEdge edge : transition) {
-				if(length < keyTransition.size() && edge.getLabel().equals(keyTransition.get(length).getLabel())) {
+				// Because some aggregates contain other aggregates
+				// https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/3b6f7c5690e513b127c8f733fd297395ddbd5355/JavaCryptographicArchitecture/src/Mac.crysl#L36
+				if(length <= keyTransition.size() && keyTransition.get(length).getLabel().containsAll(edge.getLabel())) {
 					length++;
 				}
 				
