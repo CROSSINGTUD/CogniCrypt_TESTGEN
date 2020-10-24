@@ -171,7 +171,14 @@ public class ParameterResolver {
 			while(itr.hasNext()) {
 				if(itr.next().getValue().equals("AnyType")) {
 					String resolvedType = originalMethodParameters[itr.previousIndex()].getType().getCanonicalName();
-					methodParameter = methodParameter.replaceFirst("_", "(" + Utils.retrieveOnlyClassName(resolvedType) + ") null");
+					try {
+						Class.forName(resolvedType.replaceAll("[\\[\\]]",""));
+						String simpleType = Utils.retrieveOnlyClassName(resolvedType);
+						methodParameter = methodParameter.replaceFirst("_", "(" + simpleType + ") null");
+					} catch (ClassNotFoundException e) {
+						String value = Utils.getDefaultValue(resolvedType);
+						methodParameter = methodParameter.replaceFirst("_", value);
+					}
 					if (resolvedType.contains(".")) {
 						testClass.addImport(resolvedType);
 					}
