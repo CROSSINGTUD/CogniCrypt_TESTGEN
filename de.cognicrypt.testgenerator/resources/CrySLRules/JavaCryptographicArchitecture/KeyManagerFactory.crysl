@@ -31,5 +31,5 @@ REQUIRES
 	generatedManagerFactoryParameters[params];
 	
 ENSURES
-	generatedKeyManager[this] after Inits;
 	generatedKeyManagers[kms] after GetKeyMng;
+	generatedKeyManager[this] after Inits;

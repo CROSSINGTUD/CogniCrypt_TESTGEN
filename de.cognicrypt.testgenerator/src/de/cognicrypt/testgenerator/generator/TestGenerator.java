@@ -206,8 +206,7 @@ public class TestGenerator {
 				for(StateNode node : ((CrySLCondPredicate) pred).getConditionalMethods()) {
 					for(TransitionEdge edge : currentTransition) {
 						if(node.getName().equals(edge.getRight().getName())) {
-							if(!ensuringPredicate.contains(pred))
-								ensuringPredicate.add(pred);
+							ensuringPredicate.add(pred);
 						}
 					}
 				}
@@ -226,14 +225,13 @@ public class TestGenerator {
 				boolean match2 = returnObj.getKey().equals(predParam.getName()) && (Utils.isSubType(returnObjType, predParamType) || Utils.isSubType(predParamType, returnObjType));
 			
 				if (match1 || match2) {
-					if(!ensuringPredicate.contains(pred))
-						ensuringPredicate.add(pred);
+					ensuringPredicate.add(pred);
 				}
 			});
 		}
 		
 		if(!ensuringPredicate.isEmpty())
-			return ensuringPredicate.get(0);
+			return ensuringPredicate.get(ensuringPredicate.size() - 1);
 		else
 		{
 			for (CrySLPredicate reqPred : curRule.getPredicates()) {
