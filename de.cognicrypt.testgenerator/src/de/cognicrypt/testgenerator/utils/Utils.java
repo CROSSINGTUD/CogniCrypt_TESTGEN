@@ -54,7 +54,7 @@ public class Utils extends de.cognicrypt.utils.Utils {
 			case "boolean":
 				return Defaults.defaultValue(Boolean.TYPE).toString();
 			default:
-				throw new IllegalArgumentException("Type " + type + " not supported");
+				return "(" + type + ") null";
 		}
 	}
 	
