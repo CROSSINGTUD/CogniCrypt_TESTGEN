@@ -322,6 +322,8 @@ public class TestGenerator {
 
 		if(CacheManager.toBeEnsuredPred.getKey() != null) {
 			CacheManager.ensuredValues = new SimpleEntry<>(CacheManager.toBeEnsuredPred.getKey(), ensures);
+		} else {
+			CacheManager.ensuredValues = null;
 		}
 
 		if(!localKillers.isEmpty())
