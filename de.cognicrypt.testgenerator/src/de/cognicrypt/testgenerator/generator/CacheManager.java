@@ -16,5 +16,12 @@ public class CacheManager {
 	
 	static Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>> toBeEnsuredPred = null;
 	static Entry<CrySLPredicate, Boolean> ensuredValues = null;
-	static Map<CrySLRule, List<String>> kills = Maps.newHashMap();
+	static Map<CrySLRule, Entry<List<String>, String>> kills = Maps.newHashMap();
+	
+	public static void reset() {
+		instancesCache.clear();
+		toBeEnsuredPred = null;
+		ensuredValues = null;
+		kills.clear();
+	}
 }

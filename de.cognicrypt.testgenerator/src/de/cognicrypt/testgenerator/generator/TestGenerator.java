@@ -123,9 +123,9 @@ public class TestGenerator {
 		Iterator<List<TransitionEdge>> invalidTransitions = fsmHandler.getInvalidTransitionsFromStateMachine();
 		if(TestGenerator.STRATEGY == MODE.IS_SELECT_FIRST || TestGenerator.STRATEGY == MODE.IS_SELECT_RANDOM) {
 			while(invalidTransitions.hasNext()) {
+				CacheManager.reset();
 				List<TransitionEdge> currentTransition = invalidTransitions.next();
 				TestMethod testMethod = testClass.addTestMethod(false);
-				CacheManager.instancesCache.clear();
 				generateTest(curRule, testClass, currentTransition, testMethod, true);
 			}
 		} else if(TestGenerator.STRATEGY == MODE.IS_SELECT_ALL) {
@@ -142,9 +142,9 @@ public class TestGenerator {
 						else
 							labels = edge.getLabel().subList(1, numberOfLabels);
 						for(CrySLMethod method : labels) {
+							CacheManager.reset();
 							selectedMethod = method;
 							TestMethod testMethod = testClass.addTestMethod(false);
-							CacheManager.instancesCache.clear();
 							generateTest(curRule, testClass, currentTransition, testMethod, true);
 						}
 					}
@@ -159,9 +159,9 @@ public class TestGenerator {
 		Iterator<List<TransitionEdge>> validTransitions = fsmHandler.getValidTransitionsFromStateMachine();
 		if(TestGenerator.STRATEGY == MODE.IS_SELECT_FIRST || TestGenerator.STRATEGY == MODE.IS_SELECT_RANDOM) {
 			while(validTransitions.hasNext()) {
+				CacheManager.reset();
 				List<TransitionEdge> currentTransition = validTransitions.next();
 				TestMethod testMethod = testClass.addTestMethod(true);
-				CacheManager.instancesCache.clear();
 				generateTest(curRule, testClass, currentTransition, testMethod, true);
 			}
 		} else if(TestGenerator.STRATEGY == MODE.IS_SELECT_ALL) {
@@ -178,9 +178,9 @@ public class TestGenerator {
 						else
 							labels = edge.getLabel().subList(1, numberOfLabels);
 						for(CrySLMethod method : labels) {
+							CacheManager.reset();
 							selectedMethod = method;
 							TestMethod testMethod = testClass.addTestMethod(true);
-							CacheManager.instancesCache.clear();
 							generateTest(curRule, testClass, currentTransition, testMethod, true);
 						}
 					}
@@ -263,7 +263,7 @@ public class TestGenerator {
 		}
 		
 		TestOracle testOracle = new TestOracle(curRule, testMethod);
-		testOracle.generateAssertions();
+		testOracle.generateAssertions(isExplicit);
 
 //				if (codeGenerator.getToBeEnsuredPred() != null && toBeEnsured.isPresent() && !toBeEnsured.get().getKey().getParameters().get(0)
 //						.equals(codeGenerator.getToBeEnsuredPred().getKey().getParameters().get(0))) {
@@ -320,12 +320,13 @@ public class TestGenerator {
 			}
 		}
 
-		CacheManager.ensuredValues = null;
 		if(CacheManager.toBeEnsuredPred.getKey() != null) {
 			CacheManager.ensuredValues = new SimpleEntry<>(CacheManager.toBeEnsuredPred.getKey(), ensures);
 		}
 
-		CacheManager.kills.put(rule, localKillers);
+		if(!localKillers.isEmpty())
+			CacheManager.kills.put(rule, new SimpleEntry<>(localKillers, retrieveInstanceName()));
+		
 		testMethod.addVariablesToBody(testMethodVariables);
 		return methodInvocations;
 	}

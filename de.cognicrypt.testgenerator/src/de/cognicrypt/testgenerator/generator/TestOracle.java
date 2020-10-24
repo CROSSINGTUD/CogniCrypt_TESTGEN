@@ -1,6 +1,7 @@
 package de.cognicrypt.testgenerator.generator;
 
 import java.util.List;
+import java.util.Map.Entry;
 
 import crypto.rules.CrySLPredicate;
 import crypto.rules.CrySLRule;
@@ -16,21 +17,44 @@ public class TestOracle {
 		this.testMethod = testMethod;
 	}
 
-	public void generateAssertions() {
+	public void generateAssertions(boolean isExplicit) {
 		generatePredicateAssertions();
-		List<String> killStmts = CacheManager.kills.get(rule);	
-		for (String stmt : killStmts) {
-			testMethod.addStatementToBody(stmt);
-		}
 		generateStateAssertions();
+		deleteInstance();
+		
+		// generating objects with kill statements along with assertions
+		if(isExplicit) {
+			for (Entry<CrySLRule, Entry<List<String>, String>> entries : CacheManager.kills.entrySet()) {
+					CrySLRule cRule = entries.getKey();
+					Entry<List<String>, String> killStmts = entries.getValue();
+					for (String stmt : killStmts.getKey())
+						testMethod.addStatementToBody(stmt);
+					generateStateAssertions(killStmts.getValue(), ((cRule==rule) ? true : false));
+			}
+		}
+	}
+
+	public void deleteInstance() {
 		CacheManager.instancesCache.pop();
 	}
 
 	private void generateStateAssertions() {
-//		String simpleClassName = Utils.retrieveOnlyClassName(rule.getClassName());
+		// skipping assertions for object with kill statements
+		if(CacheManager.kills.containsKey(rule))
+			return;
+		
 		String instanceName = TestGenerator.retrieveInstanceName();
 
 		if (testMethod.isValid()) {
+			testMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
+		} else {
+			testMethod.addStatementToBody("Assertions.mustNotBeInAcceptingState(" + instanceName + ");");
+		}
+	}
+	
+	private void generateStateAssertions(String instanceName, boolean isExplicit) {
+
+		if (testMethod.isValid() || !isExplicit) {
 			testMethod.addStatementToBody("Assertions.mustBeInAcceptingState(" + instanceName + ");");
 		} else {
 			testMethod.addStatementToBody("Assertions.mustNotBeInAcceptingState(" + instanceName + ");");
@@ -41,7 +65,6 @@ public class TestOracle {
 		if(CacheManager.ensuredValues != null) {
 			CrySLPredicate predicate = CacheManager.ensuredValues.getKey();
 			String param = predicate.getParameters().get(0).getName();
-//			String simpleClassName = Utils.retrieveOnlyClassName(rule.getClassName());
 			String instanceName = TestGenerator.retrieveInstanceName();
 			
 			if (CacheManager.ensuredValues.getValue()) {
