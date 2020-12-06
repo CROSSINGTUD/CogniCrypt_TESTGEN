@@ -207,14 +207,14 @@ public class FSMHandler {
 
 			if (Utils.isSubType(predVarType, returnType) && returnVarName
 				.equals(predVarName) || (predVarName.equals("this") && label.getMethodName().endsWith(predVarType.substring(predVarType.lastIndexOf('.') + 1)))) {
-				return label;
+				return FSMHandler.selectMethodBasedOnStrategy(transition, isExplicit);
 			}
 			for (Entry<String, String> par : label.getParameters()) {
 				String parType = par.getValue();
 				String parVarName = par.getKey();
 
 				if ((Utils.isSubType(predVarType, parType) || Utils.isSubType(parType, predVarType)) && (parVarName.equals(predVarName) || "this".equals(predVarName))) {
-					return label;
+					return FSMHandler.selectMethodBasedOnStrategy(transition, isExplicit);
 				}
 			}
 		}
