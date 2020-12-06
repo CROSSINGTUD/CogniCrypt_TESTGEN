@@ -111,17 +111,17 @@ public class PredicateConnectionsHandler {
 	}
 
 	public void updateToBeEnsured(Entry<String, String> entry) {
-		CrySLPredicate existing = CacheManager.toBeEnsuredPred.getKey();
-		if (existing != null) {
+		if (CacheManager.toBeEnsuredPred != null) {
+			CrySLPredicate existing = CacheManager.toBeEnsuredPred.getKey();
 			CrySLObject predicatePar = (CrySLObject) existing.getParameters().get(0);
 
 			if (!"this".equals(predicatePar.getVarName())) {
 				List<ICrySLPredicateParameter> parameters = Lists.newArrayList();
 				for (ICrySLPredicateParameter obj : existing.getParameters()) {
-					if (Utils.isSubType(predicatePar.getJavaType(), entry.getValue())
-							|| Utils.isSubType(entry.getValue(), predicatePar.getJavaType())) {
-						parameters.add(new CrySLObject(entry.getKey(), predicatePar.getJavaType(),
-								predicatePar.getSplitter()));
+					CrySLObject par = ((CrySLObject) obj);
+					if (Utils.isSubType(par.getJavaType(), predicatePar.getJavaType())
+							|| Utils.isSubType(predicatePar.getJavaType(), par.getJavaType())) {
+						parameters.add(new CrySLObject(entry.getKey(), par.getJavaType(), par.getSplitter()));
 					}
 				}
 				if (!parameters.isEmpty()) {
