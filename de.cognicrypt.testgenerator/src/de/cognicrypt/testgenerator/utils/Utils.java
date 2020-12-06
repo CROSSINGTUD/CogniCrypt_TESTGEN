@@ -265,4 +265,8 @@ public class Utils extends de.cognicrypt.utils.Utils {
 		}
 		return exceptions;
 	}
+
+    public static long bytesToMegabytes(long bytes) {
+        return bytes / Constants.MEGABYTE;
+    }
 }

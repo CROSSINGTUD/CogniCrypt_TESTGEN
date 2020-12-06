@@ -10,4 +10,6 @@ public class Constants extends de.cognicrypt.core.Constants {
 	public static final List<String> PREDEFINED_PREDS = Arrays.asList("callTo", "noCallTo", "neverTypeOf", "length", "notHardCoded");
 	public static final List<String> TEST_IMPORTS = Arrays.asList("org.junit.Test", "test.UsagePatternTestingFramework", "test.assertions.Assertions", "crypto.analysis.CrySLRulesetSelector.Ruleset");
 	public static final String TEST_PROJECT_RESOURCES_PATH = "resources";
+	
+	public static final long MEGABYTE = 1024L * 1024L;
 }

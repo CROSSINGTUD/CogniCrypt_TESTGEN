@@ -1,7 +1,7 @@
 package de.cognicrypt.testgenerator.actions;
 
-import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.eclipse.core.commands.AbstractHandler;
@@ -14,6 +14,7 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 
 import de.cognicrypt.testgenerator.generator.TestGenerator;
+import de.cognicrypt.testgenerator.utils.Utils;
 
 public class RunTestGeneratorHandler extends AbstractHandler {
 
@@ -22,12 +23,16 @@ public class RunTestGeneratorHandler extends AbstractHandler {
 	@Override
 	public Object execute(ExecutionEvent event) throws ExecutionException {
 		closeExistingEditors();
-		Instant start = Instant.now();
+		long startTime = System.currentTimeMillis();
+		Runtime runtime = Runtime.getRuntime();
 		TestGenerator generator = TestGenerator.getInstance();
 		generator.generateTests();
 		Instant finish = Instant.now();
-		long timeElapsed = Duration.between(start, finish).getSeconds();
-		LOGGER.info("Test generation took " + timeElapsed + "seconds!");
+		long stopTime = System.currentTimeMillis();
+        long elapsedTime = stopTime - startTime;
+		LOGGER.info("Test generation took " + TimeUnit.MILLISECONDS.toSeconds(elapsedTime) + " seconds!");
+		long memory = runtime.totalMemory() - runtime.freeMemory();
+		LOGGER.info("Test generation took " + Utils.bytesToMegabytes(memory) + " MB!");
 		return event;
 	}
 
