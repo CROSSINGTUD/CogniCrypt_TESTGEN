@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import com.google.common.collect.Lists;
 
+import crypto.interfaces.ICrySLPredicateParameter;
 import crypto.interfaces.ISLConstraint;
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLObject;
@@ -100,8 +101,11 @@ public class ParameterResolver {
 					Optional<Entry<String, String>> postMatch = declaredVariables.stream()
 							.filter(e -> (Utils.isSubType(e.getValue(), parameter.getValue()) || Utils.isSubType(parameter.getValue(), e.getValue()))).findFirst();
 					if (postMatch.isPresent()) {
-						//						updateToBeEnsured(match.get());
-						methodParameter = methodParameter.replace(parameter.getKey(), postMatch.get().getKey());
+						String preParamName = parameter.getKey();
+						String postParamName = postMatch.get().getKey();
+						methodParameter = methodParameter.replace(preParamName, postParamName);
+//						predicatesHandler.updateToBeEnsured(postMatch.get());
+						updateToBeEnsured(preParamName, postParamName);
 					}
 					continue;
 				}
@@ -130,6 +134,28 @@ public class ParameterResolver {
 
 		currentInvokedMethod = methodNamdResultAssignment + methodParameter + appendix;
 		return new SimpleEntry<>(currentInvokedMethod, variablesToBeAdded);
+	}
+
+	// FIXME to be replaced with PredicateConnections.updateToBeEnsured()
+	private void updateToBeEnsured(String pre, String post) {
+		CrySLPredicate pred = CacheManager.toBeEnsuredPred.getKey();
+		if (pred != null) {
+			List<ICrySLPredicateParameter> parameters = Lists.newArrayList();
+			for (ICrySLPredicateParameter obj : pred.getParameters()) {
+				CrySLObject par = ((CrySLObject) obj);
+				if (par.getName().equals(pre)) {
+					parameters.add(new CrySLObject(post, par.getJavaType(), par.getSplitter()));
+				} else {
+					parameters.add(new CrySLObject(par.getName(), par.getJavaType(), par.getSplitter()));
+				}
+			}
+			if (!parameters.isEmpty()) {
+				CacheManager.toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(
+						new CrySLPredicate(pred.getBaseObject(), pred.getPredName(), parameters, pred.isNegated(),
+								pred.getConstraint()),
+						CacheManager.toBeEnsuredPred.getValue());
+			}
+		}
 	}
 
 	private String resolveVoidTypes(CrySLMethod crySLMethod, String methodParameter, TestClass testClass) {

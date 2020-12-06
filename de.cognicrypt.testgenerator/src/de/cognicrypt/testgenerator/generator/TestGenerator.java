@@ -39,7 +39,7 @@ public class TestGenerator {
 	private PredicateConnectionsHandler predicatesHandler;
 
 	private static TestGenerator instance;
-	public static MODE STRATEGY = MODE.IS_SELECT_FIRST;
+	public static MODE STRATEGY = MODE.IS_SELECT_ALL;
 	public static CrySLMethod selectedMethod;
 
 	public static enum MODE {
@@ -417,7 +417,7 @@ public class TestGenerator {
 					}
 					if (CacheManager.toBeEnsuredPred.getKey().getParameters().get(0).getName()
 							.equals(method.getRetObject().getKey())) {
-						updateToBeEnsured(new SimpleEntry<String, String>(returnValueName, returnValueType));
+						predicatesHandler.updateToBeEnsured(new SimpleEntry<String, String>(returnValueName, returnValueType));
 					}
 				} else {
 					methodInvocation = instanceName + "." + currentInvokedMethod;
@@ -444,31 +444,6 @@ public class TestGenerator {
 		}
 		CacheManager.instancesCache.push(name);
 		return name;
-	}
-
-	public void updateToBeEnsured(Entry<String, String> entry) {
-		if (CacheManager.toBeEnsuredPred != null) {
-			CrySLPredicate existing = CacheManager.toBeEnsuredPred.getKey();
-			CrySLObject predicatePar = (CrySLObject) existing.getParameters().get(0);
-
-			if (!"this".equals(predicatePar.getVarName())) {
-				List<ICrySLPredicateParameter> parameters = Lists.newArrayList();
-				for (ICrySLPredicateParameter obj : existing.getParameters()) {
-					CrySLObject par = ((CrySLObject) obj);
-					if (Utils.isSubType(par.getJavaType(), predicatePar.getJavaType())
-							|| Utils.isSubType(predicatePar.getJavaType(), par.getJavaType())) {
-						parameters.add(new CrySLObject(entry.getKey(), par.getJavaType(), par.getSplitter()));
-					}
-				}
-				if (!parameters.isEmpty()) {
-					CacheManager.toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(
-							new CrySLPredicate(existing.getBaseObject(), existing.getPredName(), parameters,
-									existing.isNegated(), existing.getConstraint()),
-							CacheManager.toBeEnsuredPred.getValue());
-				}
-			}
-
-		}
 	}
 
 //	public Optional<Entry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>> determineEnsurePreds(CrySLRule rule) {

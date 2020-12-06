@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 
 import com.google.common.collect.Lists;
 
+import crypto.interfaces.ICrySLPredicateParameter;
 import crypto.rules.CrySLMethod;
 import crypto.rules.CrySLObject;
 import crypto.rules.CrySLPredicate;
@@ -106,6 +107,31 @@ public class PredicateConnectionsHandler {
 			CrySLPredicate key = c.getKey();
 			Entry<CrySLRule, CrySLRule> value = c.getValue();
 			System.out.println(key + " : " + Utils.retrieveOnlyClassName(value.getKey().getClassName()) + " -> " + Utils.retrieveOnlyClassName(value.getValue().getClassName()));
+		}
+	}
+
+	public void updateToBeEnsured(Entry<String, String> entry) {
+		CrySLPredicate existing = CacheManager.toBeEnsuredPred.getKey();
+		if (existing != null) {
+			CrySLObject predicatePar = (CrySLObject) existing.getParameters().get(0);
+
+			if (!"this".equals(predicatePar.getVarName())) {
+				List<ICrySLPredicateParameter> parameters = Lists.newArrayList();
+				for (ICrySLPredicateParameter obj : existing.getParameters()) {
+					if (Utils.isSubType(predicatePar.getJavaType(), entry.getValue())
+							|| Utils.isSubType(entry.getValue(), predicatePar.getJavaType())) {
+						parameters.add(new CrySLObject(entry.getKey(), predicatePar.getJavaType(),
+								predicatePar.getSplitter()));
+					}
+				}
+				if (!parameters.isEmpty()) {
+					CacheManager.toBeEnsuredPred = new SimpleEntry<CrySLPredicate, Entry<CrySLRule, CrySLRule>>(
+							new CrySLPredicate(existing.getBaseObject(), existing.getPredName(), parameters,
+									existing.isNegated(), existing.getConstraint()),
+							CacheManager.toBeEnsuredPred.getValue());
+				}
+			}
+
 		}
 	}
 }
