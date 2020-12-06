@@ -128,7 +128,7 @@ public class TestGenerator {
 
 				for (TransitionEdge edge : currentTransition) {
 					int numberOfLabels = edge.getLabel().size();
-					if (numberOfLabels > 1) {
+					if (numberOfLabels > 0) {
 						List<CrySLMethod> labels;
 						// this condition avoids redundant invalid test cases
 						if (currentTransition.get(0).equals(edge))
@@ -164,7 +164,7 @@ public class TestGenerator {
 
 				for (TransitionEdge edge : currentTransition) {
 					int numberOfLabels = edge.getLabel().size();
-					if (numberOfLabels > 1) {
+					if (numberOfLabels > 0) {
 						List<CrySLMethod> labels;
 						// this condition avoids redundant valid test cases
 						if (currentTransition.get(0).equals(edge))
