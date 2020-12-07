@@ -1,32 +1,26 @@
 SPEC java.security.DigestInputStream
-
 OBJECTS
 	java.io.InputStream is;
 	java.security.MessageDigest md;
-	byte[] data;
-	int offset;
+	byte[] b;
+	int off;
 	int len;
 
 FORBIDDEN
 	on(boolean) ;
 
 EVENTS
-	con: DigestInputStream(is, md);
+	c: DigestInputStream(is, md);
 	
 	r1: read(); 
-	r2: read(data, offset, len);
-	Reads := r1 | r2;
-
-	cl: close();
-
+	r2: read(b, off, len);
+	Reads:= r1 | r2;
+	
 ORDER
-	con, Reads+, cl
+	c, Reads+
 	
 CONSTRAINTS
-	len > offset;
+	len > off;
 	
-REQUIRES
-	generatedMessageDigest[md];
-
 ENSURES
 	digestedInputStream[is, md];

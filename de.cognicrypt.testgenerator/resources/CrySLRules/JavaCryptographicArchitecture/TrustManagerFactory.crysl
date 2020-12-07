@@ -28,5 +28,5 @@ REQUIRES
 	generatedManagerFactoryParameters[params];									
 															
 ENSURES
-	generatedTrustManagers[tms] after gtm;
-	generatedTrustManager[this] after Init;															
+	generatedTrustManager[this] after Init;			
+	generatedTrustManagers[tms];															

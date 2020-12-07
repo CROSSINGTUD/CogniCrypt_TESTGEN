@@ -1,8 +1,8 @@
 SPEC javax.net.ssl.KeyManagerFactory
 
 OBJECTS
-	char[] password;
-	java.lang.String algo;
+    char[] password;
+    java.lang.String algo;
 	java.security.KeyStore keyStore;
 	javax.net.ssl.ManagerFactoryParameters params;
 	javax.net.ssl.KeyManager[] kms;
@@ -14,22 +14,20 @@ EVENTS
 
 	i1: init(keyStore, password);
 	i2: init(params);
-	Inits := i1 | i2;
+	Init := i1 | i2;
 	
-	GetKeyMng: kms = getKeyManagers();
+	gkm: kms = getKeyManagers();
 			
 ORDER
-	Gets, Inits, GetKeyMng?
+	Gets, Init, gkm?
 
 CONSTRAINTS
-	neverTypeOf[password, java.lang.String];
-	notHardCoded[password];
-	algo in {"PKIX", "SunX509"};
+    neverTypeOf[password, java.lang.String];
+    algo in {"PKIX", "SunX509"};
 
 REQUIRES
 	generatedKeyStore[keyStore];
-	generatedManagerFactoryParameters[params];
 	
 ENSURES
-	generatedKeyManagers[kms] after GetKeyMng;
-	generatedKeyManager[this] after Inits;
+	generatedKeyManager[this] after Init;
+	generatedKeyManager[kms];

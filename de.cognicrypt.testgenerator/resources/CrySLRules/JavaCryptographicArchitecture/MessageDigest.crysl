@@ -1,5 +1,4 @@
 SPEC java.security.MessageDigest
-
 OBJECTS
     java.lang.String digestAlgorithm;
     byte pre_inbyte;
@@ -35,10 +34,9 @@ ORDER
 
 CONSTRAINTS
     digestAlgorithm in {"SHA-256", "SHA-384", "SHA-512"};
-    length[pre_inbytearr] >= pre_len + pre_off;
-    length[out] >= len + off;
+    pre_len > pre_off;
+    len > off;
 
 ENSURES
-	generatedMessageDigest[this] after Gets;
 	digested[out, _];
     digested[out, inbytearr];

@@ -1,10 +1,8 @@
 SPEC java.security.spec.DSAGenParameterSpec
-
 OBJECTS 
 	int primePLen;
 	int subPrimeQLen;
 	int seedLen;
-	
 EVENTS
 	c1: DSAGenParameterSpec(primePLen, subPrimeQLen);
 	c2: DSAGenParameterSpec(primePLen, subPrimeQLen, seedLen);
@@ -12,6 +10,5 @@ EVENTS
 	
 ORDER
 	Cons
-	
 ENSURES
 	preparedDSA[this];
