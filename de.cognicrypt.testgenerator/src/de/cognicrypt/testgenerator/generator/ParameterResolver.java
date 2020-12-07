@@ -203,7 +203,7 @@ public class ParameterResolver {
 						methodParameter = methodParameter.replaceFirst("_", "(" + simpleType + ") null");
 					} catch (ClassNotFoundException e) {
 						String value = Utils.getDefaultValue(resolvedType);
-						methodParameter = methodParameter.replaceFirst("(, *)_", "$1" + value);
+						methodParameter = methodParameter.replaceFirst("([\\(,] *)_", "$1" + value);
 //						methodParameter = methodParameter.replaceFirst("([(,] *)_( *[,$])", "$1" + value + "$2");
 					}
 					if (resolvedType.contains(".")) {
