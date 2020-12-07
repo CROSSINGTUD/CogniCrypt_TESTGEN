@@ -2,7 +2,6 @@ java.security.AlgorithmParameters
 java.security.AlgorithmParameterGenerator
 java.security.cert.PKIXBuilderParameters
 java.security.cert.PKIXParameters
-java.security.cert.TrustAnchor
 java.security.DigestInputStream
 java.security.DigestOutputStream
 java.security.KeyFactory
