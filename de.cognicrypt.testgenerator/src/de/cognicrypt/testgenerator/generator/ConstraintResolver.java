@@ -4,6 +4,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -82,6 +83,10 @@ public class ConstraintResolver {
 					}
 				}
 				String secureInt = "";
+				//TODO: need to understand what is secureInt
+				if(value == 0) {
+					secureInt = "0";
+				}else {
 				switch (comp.getOperator()) {
 					case g:
 					case ge:
@@ -103,7 +108,7 @@ public class ConstraintResolver {
 					case eq:
 					default:
 						break;
-				}
+				}}
 				return secureInt;
 			}
 		} else if (constraint instanceof CrySLPredicate && "instanceOf".equals(((CrySLPredicate) constraint).getPredName())) {
@@ -116,8 +121,18 @@ public class ConstraintResolver {
 			LogOps operator = crySLConstraint.getOperator();
 			ISLConstraint left = crySLConstraint.getLeft();
 			ISLConstraint right = crySLConstraint.getRight();
-			Entry<String, String> leftAlternative = new SimpleEntry<String, String>(left.getInvolvedVarNames().iterator().next(), parameter.getValue());
-			Entry<String, String> rightAlternative = new SimpleEntry<String, String>(right.getInvolvedVarNames().iterator().next(), parameter.getValue());
+			Iterator<String> leftAltiterator = left.getInvolvedVarNames().iterator();
+			Entry<String, String> leftAlternative = null;
+			if(leftAltiterator.hasNext()) {
+				leftAlternative = new SimpleEntry<String, String>(leftAltiterator.next(), parameter.getValue());
+			}
+//			 new SimpleEntry<String, String>(leftAltiterator.next(), parameter.getValue())
+			Iterator<String> rightAltiterator = right.getInvolvedVarNames().iterator();
+			
+			Entry<String, String> rightAlternative = null;
+			if (rightAltiterator.hasNext()) {
+				rightAlternative = new SimpleEntry<String, String>(rightAltiterator.next(), parameter.getValue());
+			}
 
 			if (operator == LogOps.and) {
 				if (left.getInvolvedVarNames().contains(parVarName)) {
@@ -156,13 +171,19 @@ public class ConstraintResolver {
 					if (!leftResult.isEmpty()) {
 						return leftResult;
 					} else {
-						return resolveCrySLConstraint(rule, rightAlternative, right, onlyEval);
+						if (rightAlternative != null) {
+							return resolveCrySLConstraint(rule, rightAlternative, right, onlyEval);
+						}
+						
 					}
 				}
 			} else if (operator == LogOps.implies) {
-				if (!right.getInvolvedVarNames().contains(parVarName) || resolveCrySLConstraint(rule, leftAlternative, left, true).isEmpty()) {
-					return "";
+				if (leftAlternative != null) {
+					if (!right.getInvolvedVarNames().contains(parVarName) || resolveCrySLConstraint(rule, leftAlternative, left, true).isEmpty()) {
+						return "";
+					}
 				}
+				
 				return resolveCrySLConstraint(rule, parameter, right);
 			} else {
 				return ""; // invalid operator
